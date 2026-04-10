@@ -1,0 +1,52 @@
+import { defineStore } from 'pinia';
+import { computed, ref } from 'vue';
+import { api } from '@/api/client';
+
+const TOKEN_KEY = 'lk_daily_token';
+
+export const useAuthStore = defineStore('auth', () => {
+  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
+  const loginName = ref<string | null>(null);
+  const verifyError = ref<string | null>(null);
+
+  const isAdmin = computed(() => Boolean(token.value));
+
+  function setToken(t: string | null): void {
+    token.value = t;
+    if (t) {
+      localStorage.setItem(TOKEN_KEY, t);
+    } else {
+      localStorage.removeItem(TOKEN_KEY);
+    }
+  }
+
+  async function login(loginStr: string, password: string): Promise<void> {
+    const { data } = await api.post<{ token: string }>('/auth/login', { login: loginStr, password });
+    setToken(data.token);
+    loginName.value = loginStr;
+    verifyError.value = null;
+  }
+
+  function logout(): void {
+    setToken(null);
+    loginName.value = null;
+  }
+
+  async function verify(): Promise<void> {
+    if (!token.value) {
+      return;
+    }
+    try {
+      const { data } = await api.get<{ ok: boolean; login: string }>('/auth/verify');
+      if (data.ok) {
+        loginName.value = data.login;
+        verifyError.value = null;
+      }
+    } catch {
+      verifyError.value = 'Сессия недействительна';
+      logout();
+    }
+  }
+
+  return { token, loginName, verifyError, isAdmin, login, logout, verify };
+});
