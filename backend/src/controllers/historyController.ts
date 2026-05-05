@@ -1,17 +1,41 @@
 import type { Request, Response } from 'express';
+import Joi from 'joi';
 import mongoose from 'mongoose';
 import { HttpError } from '../middlewares/errorHandler.js';
 import { PresentationLog } from '../models/PresentationLog.js';
-import { parseMoscowDayInput } from '../utils/dateHelpers.js';
+import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
 
-export async function listHistory(req: Request, res: Response): Promise<void> {
-  const { teamId, from, to, status } = req.query as Record<string, string | undefined>;
+type HistoryQuery = {
+  teamId?: string;
+  from?: string;
+  to?: string;
+  status?: string;
+};
+
+const historyQuerySchema = Joi.object({
+  teamId: Joi.string()
+    .optional()
+    .allow('')
+    .custom((value, helpers) => {
+      if (value === undefined || value === null || value === '') {
+        return undefined;
+      }
+      const s = String(value);
+      if (!mongoose.isValidObjectId(s)) {
+        return helpers.error('any.invalid');
+      }
+      return s;
+    }),
+  from: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
+  to: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
+  status: Joi.string().valid('presented', 'skipped', 'no_available').optional().allow(''),
+});
+
+function buildHistoryFilter(query: HistoryQuery): Record<string, unknown> {
+  const { teamId, from, to, status } = query;
   const filter: Record<string, unknown> = {};
 
   if (teamId) {
-    if (!mongoose.isValidObjectId(teamId)) {
-      throw new HttpError(400, 'Invalid teamId');
-    }
     filter.teamId = teamId;
   }
   const dateCond: Record<string, Date> = {};
@@ -25,11 +49,33 @@ export async function listHistory(req: Request, res: Response): Promise<void> {
     filter.date = dateCond;
   }
   if (status) {
-    if (!['presented', 'skipped', 'no_available'].includes(status)) {
-      throw new HttpError(400, 'Invalid status');
-    }
     filter.status = status;
   }
+
+  return filter;
+}
+
+function validateHistoryQuery(query: unknown): HistoryQuery {
+  const { error, value } = historyQuerySchema.validate(query, {
+    abortEarly: false,
+    allowUnknown: true,
+    stripUnknown: true,
+  });
+  if (error) {
+    throw new HttpError(400, error.message);
+  }
+  return value as HistoryQuery;
+}
+
+function csvEscape(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export async function listHistory(req: Request, res: Response): Promise<void> {
+  const filter = buildHistoryFilter(validateHistoryQuery(req.query));
 
   const rows = await PresentationLog.find(filter)
     .sort({ date: -1, createdAt: -1 })
@@ -38,4 +84,37 @@ export async function listHistory(req: Request, res: Response): Promise<void> {
     .lean();
 
   res.json(rows);
+}
+
+export async function exportHistoryCsv(req: Request, res: Response): Promise<void> {
+  const filter = buildHistoryFilter(validateHistoryQuery(req.query));
+
+  const rows = await PresentationLog.find(filter)
+    .sort({ date: -1, createdAt: -1 })
+    .populate('teamId', 'name')
+    .populate('userId', 'fullName')
+    .lean();
+
+  const lines: string[] = ['date,team,user,status'];
+  for (const row of rows) {
+    const dateStr = utcDateToMoscowDateString(row.date as Date);
+    const team =
+      row.teamId && typeof row.teamId === 'object' && 'name' in row.teamId
+        ? String((row.teamId as { name?: string }).name ?? '')
+        : '';
+    const user =
+      row.userId && typeof row.userId === 'object' && row.userId !== null && 'fullName' in row.userId
+        ? String((row.userId as { fullName?: string }).fullName ?? '')
+        : '';
+    lines.push(
+      [dateStr, team, user, row.status]
+        .map((c) => csvEscape(String(c)))
+        .join(','),
+    );
+  }
+
+  const body = `\uFEFF${lines.join('\n')}\n`;
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="lk-daily-history.csv"');
+  res.send(body);
 }

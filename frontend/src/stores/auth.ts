@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { api } from '@/api/client';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 const TOKEN_KEY = 'lk_daily_token';
 
@@ -42,8 +43,8 @@ export const useAuthStore = defineStore('auth', () => {
         loginName.value = data.login;
         verifyError.value = null;
       }
-    } catch {
-      verifyError.value = 'Сессия недействительна';
+    } catch (e) {
+      verifyError.value = getApiErrorMessage(e, 'Сессия недействительна');
       logout();
     }
   }

@@ -2,18 +2,24 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/api/client';
 import type { User } from '@/types/api';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export const useUsersStore = defineStore('users', () => {
   const users = ref<User[]>([]);
   const loading = ref(false);
+  const error = ref<string | null>(null);
 
   async function fetchUsers(teamId?: string, includeInactive = false): Promise<void> {
     loading.value = true;
+    error.value = null;
     try {
       const { data } = await api.get<User[]>('/users', {
         params: { teamId, includeInactive },
       });
       users.value = data;
+    } catch (e) {
+      error.value = getApiErrorMessage(e, 'Не удалось загрузить участников');
+      throw e;
     } finally {
       loading.value = false;
     }
@@ -21,9 +27,9 @@ export const useUsersStore = defineStore('users', () => {
 
   async function createUser(payload: {
     fullName: string;
-    email?: string;
     teamId: string;
     isActive?: boolean;
+    onMaternityLeave?: boolean;
   }): Promise<User> {
     const { data } = await api.post<User>('/users', payload);
     return data;
@@ -31,7 +37,12 @@ export const useUsersStore = defineStore('users', () => {
 
   async function updateUser(
     id: string,
-    payload: Partial<{ fullName: string; email?: string; teamId: string; isActive: boolean }>,
+    payload: Partial<{
+      fullName: string;
+      teamId: string;
+      isActive: boolean;
+      onMaternityLeave: boolean;
+    }>,
   ): Promise<User> {
     const { data } = await api.put<User>(`/users/${id}`, payload);
     return data;
@@ -42,5 +53,5 @@ export const useUsersStore = defineStore('users', () => {
     return data;
   }
 
-  return { users, loading, fetchUsers, createUser, updateUser, deleteUser };
+  return { users, loading, error, fetchUsers, createUser, updateUser, deleteUser };
 });

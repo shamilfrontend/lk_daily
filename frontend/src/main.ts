@@ -4,6 +4,7 @@ import App from './App.vue';
 import router from './router';
 import { useAuthStore } from './stores/auth';
 import './assets/styles/main.scss';
+import '@vuepic/vue-datepicker/dist/main.css';
 
 const app = createApp(App);
 const pinia = createPinia();

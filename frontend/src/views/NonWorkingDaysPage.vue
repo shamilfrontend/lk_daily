@@ -1,133 +1,185 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { useAuthStore } from '@/stores/auth';
+import { computed, onMounted, ref, watch } from 'vue';
+import AppPageHeader from '@/components/UI/AppPageHeader.vue';
+import AppState from '@/components/UI/AppState.vue';
+import ProductionYearCalendar from '@/components/ProductionYearCalendar.vue';
+import { useAppStore } from '@/stores/app';
 import { useNonWorkingDaysStore } from '@/stores/nonWorkingDays';
+import { useTeamsStore } from '@/stores/teams';
 
-const auth = useAuthStore();
+const app = useAppStore();
 const nwd = useNonWorkingDaysStore();
+const teams = useTeamsStore();
 
 const yearInput = ref(new Date().getFullYear());
-const newDate = ref('');
-const newDesc = ref('');
-const error = ref<string | null>(null);
 
-onMounted(() => {
-  void nwd.fetchYear(yearInput.value);
+const selectedTeamRegion = computed(() => {
+  if (!app.selectedTeamId) return undefined;
+  return teams.teams.find((t) => t._id === app.selectedTeamId)?.region;
 });
 
+onMounted(() => {
+  void loadYear();
+});
+
+watch(
+  () => app.selectedTeamId,
+  () => {
+    void loadYear();
+  },
+);
+
 async function loadYear(): Promise<void> {
-  error.value = null;
-  await nwd.fetchYear(yearInput.value);
-}
-
-async function addCustom(): Promise<void> {
-  error.value = null;
   try {
-    await nwd.createCustom(newDate.value, newDesc.value.trim() || undefined);
-    newDate.value = '';
-    newDesc.value = '';
+    await nwd.fetchYear(yearInput.value, app.selectedTeamId ?? undefined);
   } catch {
-    error.value = 'Не удалось добавить';
-  }
-}
-
-async function remove(id: string | null): Promise<void> {
-  if (!id) return;
-  if (!confirm('Удалить пользовательский выходной?')) return;
-  error.value = null;
-  try {
-    await nwd.removeCustom(id);
-  } catch {
-    error.value = 'Не удалось удалить';
+    /* handled in store */
   }
 }
 
 function typeClass(t: string): string {
   if (t === 'federal') return 'badge badge--federal';
+  if (t === 'transfer') return 'badge badge--transfer';
+  if (t === 'regional') return 'badge badge--regional';
   if (t === 'custom') return 'badge badge--custom';
   return 'badge';
+}
+
+function typeLabel(t: string): string {
+  if (t === 'federal') return 'Федеральный';
+  if (t === 'transfer') return 'Перенос';
+  if (t === 'regional') return 'Региональный';
+  if (t === 'custom') return 'Пользовательский';
+  return t;
 }
 </script>
 
 <template>
-  <h1>Нерабочие дни</h1>
-  <p class="muted">
-    MVP: федеральные праздники считаются по правилам ТК РФ (код), дополнительно — пользовательские дни из БД.
-  </p>
+  <section class="page-shell">
+    <AppPageHeader
+      title="Нерабочие дни"
+      :subtitle="
+        selectedTeamRegion
+          ? `Для выбранной команды учитывается регион ${selectedTeamRegion} вместе с федеральными и пользовательскими днями.`
+          : 'Показываем федеральные, переносные и пользовательские дни. Выбери команду, чтобы увидеть региональные даты.'
+      "
+      eyebrow="Calendar"
+    />
 
-  <div class="card row">
-    <label class="muted" for="y">Год</label>
-    <input id="y" v-model.number="yearInput" class="input" type="number" min="1970" max="3000" />
-    <button type="button" class="btn" @click="loadYear">Показать</button>
-  </div>
-
-  <div v-if="auth.isAdmin" class="card">
-    <h2>Добавить пользовательский выходной</h2>
-    <form class="grid" @submit.prevent="addCustom">
-      <label class="muted">Дата</label>
-      <input v-model="newDate" class="input" type="date" required />
-
-      <label class="muted">Описание</label>
-      <input v-model="newDesc" class="input" />
-
-      <div class="row">
-        <button class="btn btn--primary" type="submit">Добавить</button>
+    <div class="card">
+      <div class="toolbar">
+        <div class="field field--sm">
+          <label for="y">Год</label>
+          <input
+            id="y"
+            v-model.number="yearInput"
+            class="input"
+            type="number"
+            min="1970"
+            max="3000"
+            :disabled="nwd.loading"
+          />
+        </div>
+        <div class="field field--grow">
+          <label>Контекст команды</label>
+          <div class="state-panel state-panel--compact">
+            <p class="state-panel__title">Регион: {{ selectedTeamRegion ?? 'не выбран' }}</p>
+            <p class="state-panel__description">При смене команды календарь обновляется автоматически.</p>
+          </div>
+        </div>
+        <div class="field">
+          <label>&nbsp;</label>
+          <button type="button" class="btn" :disabled="nwd.loading" @click="loadYear">Показать</button>
+        </div>
       </div>
-      <p v-if="error" class="error">{{ error }}</p>
-    </form>
-  </div>
+    </div>
 
-  <div class="card">
-    <h2>Календарь ({{ nwd.year }})</h2>
-    <p v-if="nwd.loading" class="muted">Загрузка…</p>
-    <table v-else class="table">
-      <thead>
-        <tr>
-          <th>Дата</th>
-          <th>Тип</th>
-          <th>Описание</th>
-          <th v-if="auth.isAdmin" />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(it, idx) in nwd.items" :key="`${it.date}-${it.type}-${idx}`">
-          <td>{{ it.date }}</td>
-          <td><span :class="typeClass(it.type)">{{ it.type }}</span></td>
-          <td>{{ it.description ?? '—' }}</td>
-          <td v-if="auth.isAdmin">
-            <button
-              v-if="it.type === 'custom' && it.id"
-              type="button"
-              class="btn btn--danger"
-              @click="remove(it.id)"
-            >
-              Удалить
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+    <AppState
+      v-if="nwd.error"
+      title="Не удалось загрузить календарь"
+      :description="nwd.error"
+      tone="error"
+    >
+      <template #actions>
+        <button type="button" class="btn btn--primary" @click="loadYear">Повторить</button>
+      </template>
+    </AppState>
+
+    <template v-else>
+      <div class="card">
+        <div class="card-heading">
+          <div>
+            <h2 class="card-heading__title">Визуальный календарь ({{ nwd.year }})</h2>
+            <p class="card-heading__subtitle">Цветом подсвечены федеральные, региональные, пользовательские даты и переносы.</p>
+          </div>
+        </div>
+        <AppState
+          v-if="nwd.loading"
+          title="Загружаем календарь"
+          description="Подтягиваем нерабочие дни и переносы."
+          compact
+        />
+        <ProductionYearCalendar
+          v-else
+          :year="nwd.year"
+          :items="nwd.items"
+          :transfers="nwd.transfers"
+        />
+      </div>
+
+      <div class="card">
+        <div class="card-heading">
+          <div>
+            <h2 class="card-heading__title">Список дат</h2>
+            <p class="card-heading__subtitle">Детальная таблица по всем дням, попавшим в календарь.</p>
+          </div>
+        </div>
+
+        <AppState
+          v-if="nwd.loading"
+          title="Загружаем даты"
+          description="Собираем список нерабочих и перенесённых дней."
+          compact
+        />
+        <AppState
+          v-else-if="!nwd.items.length"
+          title="За этот год записей нет"
+          description="Попробуй выбрать другой год или проверить настройки команды."
+          tone="empty"
+        />
+        <div v-else class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>Тип</th>
+                <th>Описание</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(it, idx) in nwd.items" :key="`${it.date}-${it.type}-${idx}`">
+                <td>{{ it.date }}</td>
+                <td>
+                  <span :class="typeClass(it.type)">{{ typeLabel(it.type) }}</span>
+                </td>
+                <td>{{ it.description ?? '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </template>
+  </section>
 </template>
 
 <style scoped lang="scss">
-h1 {
-  margin-top: 0;
+.card-heading__title,
+.card-heading__subtitle {
+  margin: 0;
 }
 
-h2 {
-  margin-top: 0;
-  font-size: 1.05rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 0.5rem 0.75rem;
-  align-items: center;
-}
-
-.grid .row {
-  grid-column: 1 / -1;
+.card-heading__subtitle {
+  margin-top: 0.35rem;
+  color: var(--muted);
 }
 </style>

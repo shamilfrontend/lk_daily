@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/api/client';
 import type { Team } from '@/types/api';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export const useTeamsStore = defineStore('teams', () => {
   const teams = ref<Team[]>([]);
@@ -15,7 +16,7 @@ export const useTeamsStore = defineStore('teams', () => {
       const { data } = await api.get<Team[]>('/teams');
       teams.value = data;
     } catch (e) {
-      error.value = 'Не удалось загрузить команды';
+      error.value = getApiErrorMessage(e, 'Не удалось загрузить команды');
       throw e;
     } finally {
       loading.value = false;

@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 import mongoose from 'mongoose';
-import { HttpError } from '../middlewares/errorHandler.js';
+
+import { HttpError, isMongoDuplicateKeyError } from '../middlewares/errorHandler.js';
 import { User } from '../models/User.js';
 import {
   getCurrentPresenter,
@@ -11,6 +12,8 @@ import {
   replaceQueueOrder,
   sortQueueAlphabetically,
 } from '../services/queueService.js';
+import { formatMoscowWeekdayLongRu } from '../utils/dateHelpers.js';
+import { buildIcsCalendar, type IcsEventInput } from '../utils/ics.js';
 
 const orderBody = Joi.object({
   userIds: Joi.array().items(Joi.string().required()).required(),
@@ -18,6 +21,8 @@ const orderBody = Joi.object({
 
 function mapPresenterError(code: string): HttpError {
   switch (code) {
+    case 'TEAM_NOT_FOUND':
+      return new HttpError(404, 'Team not found');
     case 'ALREADY_RECORDED_TODAY':
       return new HttpError(409, 'Already recorded for this team today');
     case 'NON_WORKING_DAY':
@@ -29,6 +34,20 @@ function mapPresenterError(code: string): HttpError {
     default:
       return new HttpError(500, code);
   }
+}
+
+/** Явный `throw`, чтобы ошибка гарантированно уходила в `asyncHandler` → `errorHandler`. */
+function throwPresentationHttpError(e: unknown): never {
+  if (isMongoDuplicateKeyError(e)) {
+    throw new HttpError(409, 'Already recorded for this team today');
+  }
+  if (e instanceof mongoose.Error.CastError) {
+    throw new HttpError(400, e.message);
+  }
+  if (e instanceof Error) {
+    throw mapPresenterError(e.message);
+  }
+  throw e;
 }
 
 export async function getCurrent(req: Request, res: Response): Promise<void> {
@@ -77,6 +96,84 @@ export async function getUpcoming(req: Request, res: Response): Promise<void> {
   }
 }
 
+function csvEscape(value: string): string {
+  if (/[",\n\r]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export async function exportUpcomingIcs(req: Request, res: Response): Promise<void> {
+  const teamId = req.query.teamId as string | undefined;
+  const daysRaw = req.query.days as string | undefined;
+  if (!teamId || !mongoose.isValidObjectId(teamId)) {
+    throw new HttpError(400, 'Invalid or missing teamId');
+  }
+  const days = daysRaw ? Number(daysRaw) : 7;
+  if (!Number.isFinite(days) || days < 1 || days > 60) {
+    throw new HttpError(400, 'Invalid days');
+  }
+  try {
+    const rows = await getUpcomingPresenters(teamId, days);
+    const events: IcsEventInput[] = rows.map((row) => {
+      const ymd = row.moscowDate.replaceAll('-', '');
+      const presenterName = row.presenter?.fullName ?? 'Нет докладчика';
+      const summary = `Докладчик: ${presenterName}`;
+      const description = row.substitution
+        ? `Вместо: ${row.substitution.canonicalFullName}`
+        : undefined;
+      return {
+        uid: `lk-daily-${teamId}-${row.moscowDate}@lk-daily`,
+        dateYmd: ymd,
+        summary,
+        description,
+      };
+    });
+    const body = buildIcsCalendar('-//LK Daily//RU', events);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="lk-daily-upcoming.ics"');
+    res.send(body);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'TEAM_NOT_FOUND') {
+      throw new HttpError(404, 'Team not found');
+    }
+    throw e;
+  }
+}
+
+export async function exportUpcomingCsv(req: Request, res: Response): Promise<void> {
+  const teamId = req.query.teamId as string | undefined;
+  const daysRaw = req.query.days as string | undefined;
+  if (!teamId || !mongoose.isValidObjectId(teamId)) {
+    throw new HttpError(400, 'Invalid or missing teamId');
+  }
+  const days = daysRaw ? Number(daysRaw) : 7;
+  if (!Number.isFinite(days) || days < 1 || days > 60) {
+    throw new HttpError(400, 'Invalid days');
+  }
+  try {
+    const rows = await getUpcomingPresenters(teamId, days);
+    const lines: string[] = ['moscowDate,weekday,presenter'];
+    for (const row of rows) {
+      const presenter = row.presenter?.fullName ?? '';
+      lines.push(
+        [row.moscowDate, formatMoscowWeekdayLongRu(row.moscowDate), presenter]
+          .map((c) => csvEscape(String(c)))
+          .join(','),
+      );
+    }
+    const body = `\uFEFF${lines.join('\n')}\n`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="lk-daily-upcoming.csv"');
+    res.send(body);
+  } catch (e) {
+    if (e instanceof Error && e.message === 'TEAM_NOT_FOUND') {
+      throw new HttpError(404, 'Team not found');
+    }
+    throw e;
+  }
+}
+
 export async function present(req: Request, res: Response): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
@@ -86,10 +183,7 @@ export async function present(req: Request, res: Response): Promise<void> {
     const out = await recordPresentation(teamId, 'presented');
     res.json(out);
   } catch (e) {
-    if (e instanceof Error) {
-      throw mapPresenterError(e.message);
-    }
-    throw e;
+    throwPresentationHttpError(e);
   }
 }
 
@@ -102,10 +196,7 @@ export async function skip(req: Request, res: Response): Promise<void> {
     const out = await recordPresentation(teamId, 'skipped');
     res.json(out);
   } catch (e) {
-    if (e instanceof Error) {
-      throw mapPresenterError(e.message);
-    }
-    throw e;
+    throwPresentationHttpError(e);
   }
 }
 

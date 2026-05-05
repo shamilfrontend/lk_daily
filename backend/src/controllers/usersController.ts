@@ -8,16 +8,16 @@ import { appendUserToQueueEnd, removeUserFromQueue } from '../services/queueServ
 
 const createBody = Joi.object({
   fullName: Joi.string().trim().required(),
-  email: Joi.string().email().allow('', null),
   teamId: Joi.string().required(),
   isActive: Joi.boolean().default(true),
+  onMaternityLeave: Joi.boolean().default(false),
 });
 
 const updateBody = Joi.object({
   fullName: Joi.string().trim(),
-  email: Joi.string().email().allow('', null),
   teamId: Joi.string(),
   isActive: Joi.boolean(),
+  onMaternityLeave: Joi.boolean(),
 }).min(1);
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
@@ -51,9 +51,9 @@ export async function createUser(req: Request, res: Response): Promise<void> {
   }
   const user = await User.create({
     fullName: value.fullName,
-    email: value.email || undefined,
     teamId: team._id,
     isActive: value.isActive !== false,
+    onMaternityLeave: value.onMaternityLeave === true,
   });
   if (user.isActive) {
     await appendUserToQueueEnd(team._id, user._id);
@@ -87,8 +87,8 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     user.teamId = team._id;
   }
   if (value.fullName !== undefined) user.fullName = value.fullName;
-  if (value.email !== undefined) user.email = value.email || undefined;
   if (value.isActive !== undefined) user.isActive = value.isActive;
+  if (value.onMaternityLeave !== undefined) user.onMaternityLeave = value.onMaternityLeave;
 
   await user.save();
 

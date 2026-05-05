@@ -1,35 +1,45 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/api/client';
-import type { NonWorkingItem } from '@/types/api';
+import type { HolidayTransferItem, NonWorkingItem } from '@/types/api';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 export const useNonWorkingDaysStore = defineStore('nonWorkingDays', () => {
   const year = ref(new Date().getFullYear());
   const items = ref<NonWorkingItem[]>([]);
+  const transfers = ref<HolidayTransferItem[]>([]);
   const loading = ref(false);
+  const error = ref<string | null>(null);
 
-  async function fetchYear(y: number): Promise<void> {
+  async function fetchYear(y: number, teamId?: string): Promise<void> {
     loading.value = true;
+    error.value = null;
     try {
-      const { data } = await api.get<{ year: number; items: NonWorkingItem[] }>('/non-working-days', {
-        params: { year: y },
-      });
-      year.value = data.year;
-      items.value = data.items;
+      const [nwdRes, trRes] = await Promise.all([
+        api.get<{ year: number; items: NonWorkingItem[] }>('/non-working-days', {
+          params: { year: y, teamId },
+        }),
+        api.get<{ year: number; items: HolidayTransferItem[] }>('/holiday-transfers', {
+          params: { year: y },
+        }),
+      ]);
+      year.value = nwdRes.data.year;
+      items.value = nwdRes.data.items;
+      transfers.value = trRes.data.items;
+    } catch (e) {
+      error.value = getApiErrorMessage(e, 'Не удалось загрузить календарь');
+      throw e;
     } finally {
       loading.value = false;
     }
   }
 
-  async function createCustom(date: string, description?: string): Promise<void> {
-    await api.post('/non-working-days', { date, description });
-    await fetchYear(year.value);
-  }
-
-  async function removeCustom(id: string): Promise<void> {
-    await api.delete(`/non-working-days/${id}`);
-    await fetchYear(year.value);
-  }
-
-  return { year, items, loading, fetchYear, createCustom, removeCustom };
+  return {
+    year,
+    items,
+    transfers,
+    loading,
+    error,
+    fetchYear,
+  };
 });

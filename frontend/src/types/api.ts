@@ -10,9 +10,9 @@ export interface Team {
 export interface User {
   _id: string;
   fullName: string;
-  email?: string;
   teamId: string;
   isActive: boolean;
+  onMaternityLeave?: boolean;
 }
 
 export interface Vacation {
@@ -32,15 +32,36 @@ export interface NonWorkingItem {
   region?: string;
 }
 
+export interface HolidayTransferItem {
+  id: string;
+  fromDate: string;
+  toDate: string;
+  description?: string;
+}
+
 export type CurrentPresenterResult =
-  | { kind: 'non_working' }
+  | { kind: 'non_working'; reason: string }
   | { kind: 'no_queue' }
   | { kind: 'no_available' }
-  | { kind: 'ok'; userId: string; user: { _id: string; fullName: string; email?: string } };
+  | {
+      kind: 'ok';
+      userId: string;
+      user: { _id: string; fullName: string };
+      rotationUserId?: string;
+      substitution?: { canonicalUserId: string; canonicalFullName: string };
+    };
 
 export interface UpcomingRow {
   moscowDate: string;
   presenter: { _id: string; fullName: string } | null;
+  substitution?: { canonicalFullName: string };
+}
+
+export interface QueueSubstitutionRow {
+  id: string;
+  moscowDate: string;
+  substituteUserId: string;
+  substituteFullName: string;
 }
 
 export interface HistoryRow {

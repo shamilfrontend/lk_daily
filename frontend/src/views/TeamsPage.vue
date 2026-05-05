@@ -1,6 +1,12 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppPageHeader from '@/components/UI/AppPageHeader.vue';
+import AppState from '@/components/UI/AppState.vue';
+import { RU_REGIONS } from '@/constants/ruRegions';
 import { useTeamsStore } from '@/stores/teams';
+import type { Team } from '@/types/api';
+import { getApiErrorMessage } from '@/utils/apiError';
 
 const teams = useTeamsStore();
 
@@ -9,6 +15,10 @@ const description = ref('');
 const region = ref('');
 const editingId = ref<string | null>(null);
 const error = ref<string | null>(null);
+const confirmOpen = ref(false);
+const confirmLoading = ref(false);
+const pendingRemoval = ref<Team | null>(null);
+const isCustomRegion = computed(() => Boolean(region.value && !RU_REGIONS.some((r) => r.code === region.value)));
 
 onMounted(() => {
   void teams.fetchTeams();
@@ -45,89 +55,140 @@ async function save(): Promise<void> {
       });
     }
     resetForm();
-  } catch {
-    error.value = 'Не удалось сохранить';
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'Не удалось сохранить команду');
   }
 }
 
-async function remove(id: string): Promise<void> {
-  if (!confirm('Удалить команду? Участники будут деактивированы.')) return;
+function openRemoveModal(team: Team): void {
+  pendingRemoval.value = team;
+  confirmOpen.value = true;
+}
+
+async function remove(): Promise<void> {
+  if (!pendingRemoval.value) return;
   error.value = null;
+  confirmLoading.value = true;
   try {
-    await teams.deleteTeam(id);
-    if (editingId.value === id) resetForm();
-  } catch {
-    error.value = 'Не удалось удалить';
+    await teams.deleteTeam(pendingRemoval.value._id);
+    if (editingId.value === pendingRemoval.value._id) resetForm();
+    confirmOpen.value = false;
+    pendingRemoval.value = null;
+  } catch (e) {
+    error.value = getApiErrorMessage(e, 'Не удалось удалить команду');
+  } finally {
+    confirmLoading.value = false;
   }
 }
 </script>
 
 <template>
-  <h1>Управление командами</h1>
+  <section class="page-shell">
+    <AppPageHeader
+      title="Управление командами"
+      subtitle="Создавай команды, меняй их описание и региональные настройки без отдельного мастера."
+      eyebrow="Admin"
+    />
 
-  <div class="card">
-    <h2>{{ editingId ? 'Редактирование' : 'Новая команда' }}</h2>
-    <form class="grid" @submit.prevent="save">
-      <label class="muted">Название*</label>
-      <input v-model="name" class="input" required />
-
-      <label class="muted">Описание</label>
-      <input v-model="description" class="input" />
-
-      <label class="muted">Регион (код)</label>
-      <input v-model="region" class="input" placeholder="RU-MOW" />
-
-      <div class="row">
-        <button class="btn btn--primary" type="submit">Сохранить</button>
-        <button v-if="editingId" type="button" class="btn" @click="resetForm">Отмена</button>
+    <div class="card">
+      <div class="card-heading">
+        <div>
+          <h2 class="card-heading__title">{{ editingId ? 'Редактирование команды' : 'Новая команда' }}</h2>
+          <p class="card-heading__subtitle">Регион влияет на производственный календарь и региональные нерабочие дни.</p>
+        </div>
       </div>
-      <p v-if="error" class="error">{{ error }}</p>
-    </form>
-  </div>
 
-  <div class="card">
-    <h2>Список</h2>
-    <p v-if="teams.loading" class="muted">Загрузка…</p>
-    <table v-else class="table">
-      <thead>
-        <tr>
-          <th>Название</th>
-          <th>Регион</th>
-          <th />
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="t in teams.teams" :key="t._id">
-          <td>{{ t.name }}</td>
-          <td>{{ t.region ?? '—' }}</td>
-          <td class="row">
-            <button type="button" class="btn" @click="startEdit(t)">Изменить</button>
-            <button type="button" class="btn btn--danger" @click="remove(t._id)">Удалить</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+      <form class="field-grid" @submit.prevent="save">
+        <label class="field__label">Название*</label>
+        <input v-model="name" class="input" required />
+
+        <label class="field__label">Описание</label>
+        <input v-model="description" class="input" />
+
+        <label class="field__label">Регион</label>
+        <select v-model="region" class="select">
+          <option value="">Не задан</option>
+          <option v-if="isCustomRegion" :value="region">Кастомный: {{ region }}</option>
+          <option v-for="r in RU_REGIONS" :key="r.code" :value="r.code">{{ r.code }} — {{ r.name }}</option>
+        </select>
+
+        <div class="actions-row field-grid__full">
+          <button class="btn btn--primary" type="submit">Сохранить</button>
+          <button v-if="editingId" type="button" class="btn" @click="resetForm">Отмена</button>
+        </div>
+        <p v-if="error" class="error field-grid__full">{{ error }}</p>
+      </form>
+    </div>
+
+    <div class="card">
+      <div class="card-heading">
+        <div>
+          <h2 class="card-heading__title">Список команд</h2>
+          <p class="card-heading__subtitle">Удаление деактивирует связанных участников, поэтому подтверждается отдельно.</p>
+        </div>
+      </div>
+
+      <AppState
+        v-if="teams.loading"
+        title="Загружаем команды"
+        description="Подтягиваем список команд и их регионы."
+        compact
+      />
+      <AppState
+        v-else-if="teams.teams.length === 0"
+        title="Команд пока нет"
+        description="Создай первую команду, чтобы начать работу с очередями и отпусками."
+        tone="empty"
+      />
+      <div v-else class="table-wrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Название</th>
+              <th>Регион</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in teams.teams" :key="t._id">
+              <td>{{ t.name }}</td>
+              <td>{{ t.region ?? '—' }}</td>
+              <td>
+                <div class="actions-row">
+                  <button type="button" class="btn" @click="startEdit(t)">Изменить</button>
+                  <button type="button" class="btn btn--danger" @click="openRemoveModal(t)">Удалить</button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <AppConfirmModal
+      v-model="confirmOpen"
+      title="Удалить команду?"
+      :description="
+        pendingRemoval
+          ? `Команда ${pendingRemoval.name} будет удалена, а связанные участники будут деактивированы.`
+          : ''
+      "
+      confirm-label="Удалить"
+      tone="danger"
+      :loading="confirmLoading"
+      @confirm="remove"
+    />
+  </section>
 </template>
 
 <style scoped lang="scss">
-h1 {
-  margin-top: 0;
+.card-heading__title,
+.card-heading__subtitle {
+  margin: 0;
 }
 
-h2 {
-  margin-top: 0;
-  font-size: 1.05rem;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 0.5rem 0.75rem;
-  align-items: center;
-}
-
-.grid .row {
-  grid-column: 1 / -1;
+.card-heading__subtitle {
+  margin-top: 0.35rem;
+  color: var(--muted);
 }
 </style>

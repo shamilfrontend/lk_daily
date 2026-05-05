@@ -1,0 +1,27 @@
+services:
+  mongo:
+    image: mongo:7
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - '4000:4000'
+    environment:
+      PORT: '4000'
+      MONGO_URI: mongodb://mongo:27017/lk-daily
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      ADMIN_LOGIN: ${ADMIN_LOGIN:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      NODE_ENV: production
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data:

@@ -11,7 +11,7 @@ const queueOrderSchema = new Schema<IQueueOrder>(
     teamId: { type: Schema.Types.ObjectId, ref: 'Team', required: true, unique: true },
     userIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },
-  { timestamps: { createdAt: false, updatedAt: true } },
+  { timestamps: { createdAt: false, updatedAt: true }, versionKey: false },
 );
 
 export const QueueOrder: Model<IQueueOrder> = mongoose.model<IQueueOrder>(

@@ -1,4 +1,5 @@
 import { NonWorkingDay } from '../models/NonWorkingDay.js';
+import { HolidayTransfer } from '../models/HolidayTransfer.js';
 import { MOSCOW_TZ, moscowDateStringToUtc, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
 
 /** Федеральные праздники по ст. 112 ТК РФ (месяц и день в календаре Москвы). */
@@ -58,26 +59,134 @@ export function getMoscowISODay(dateStr: string): number {
   return n;
 }
 
-/**
- * MVP: федеральные праздники из кода + пользовательские дни из БД.
- * Переносы выходных и региональные праздники — в следующей итерации.
- */
-export async function isWorkingDay(moscowDateStr: string): Promise<boolean> {
+type CalendarData = {
+  customDates: Set<string>;
+  regionalDates: Set<string>;
+  transferToDates: Set<string>;
+  transferFromDates: Set<string>;
+  dbFederalTransferDates: Set<string>;
+};
+
+const checkerCache = new Map<string, (dateStr: string) => boolean>();
+
+function cacheKey(year: number, teamRegion?: string): string {
+  return `${year}:${teamRegion ?? ''}`;
+}
+
+function parseYear(dateStr: string): number {
+  return Number(dateStr.slice(0, 4));
+}
+
+async function loadCalendarDataForYear(year: number, teamRegion?: string): Promise<CalendarData> {
+  const start = moscowDateStringToUtc(`${year}-01-01`);
+  const end = moscowDateStringToUtc(`${year + 1}-01-01`);
+
+  const [transfers, nonWorkingRows] = await Promise.all([
+    HolidayTransfer.find({ year }).lean(),
+    NonWorkingDay.find({ date: { $gte: start, $lt: end } }).lean(),
+  ]);
+
+  const customDates = new Set<string>();
+  const regionalDates = new Set<string>();
+  const dbFederalTransferDates = new Set<string>();
+
+  for (const row of nonWorkingRows) {
+    const day = utcDateToMoscowDateString(row.date);
+    if (row.type === 'custom') {
+      customDates.add(day);
+    } else if (row.type === 'regional' && teamRegion && row.region === teamRegion) {
+      regionalDates.add(day);
+    } else if (row.type === 'federal' || row.type === 'transfer') {
+      dbFederalTransferDates.add(day);
+    }
+  }
+
+  return {
+    customDates,
+    regionalDates,
+    transferToDates: new Set(transfers.map((t) => utcDateToMoscowDateString(t.toDate))),
+    transferFromDates: new Set(transfers.map((t) => utcDateToMoscowDateString(t.fromDate))),
+    dbFederalTransferDates,
+  };
+}
+
+export async function getWorkingDayCheckerForYear(
+  year: number,
+  teamRegion?: string,
+): Promise<(dateStr: string) => boolean> {
+  const key = cacheKey(year, teamRegion);
+  const cached = checkerCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const data = await loadCalendarDataForYear(year, teamRegion);
+  const checker = (moscowDateStr: string): boolean => {
+    if (data.customDates.has(moscowDateStr)) {
+      return false;
+    }
+    if (data.transferToDates.has(moscowDateStr)) {
+      return false;
+    }
+    if (isStaticFederalHolidayMoscow(moscowDateStr).hit && !data.transferFromDates.has(moscowDateStr)) {
+      return false;
+    }
+    if (data.dbFederalTransferDates.has(moscowDateStr)) {
+      return false;
+    }
+    if (teamRegion && data.regionalDates.has(moscowDateStr)) {
+      return false;
+    }
+
+    const isoDow = getMoscowISODay(moscowDateStr);
+    if (isoDow === 6 || isoDow === 7) {
+      return data.transferFromDates.has(moscowDateStr);
+    }
+    return true;
+  };
+
+  checkerCache.set(key, checker);
+  return checker;
+}
+
+export function invalidateCalendarCache(): void {
+  checkerCache.clear();
+}
+
+export async function isWorkingDay(moscowDateStr: string, teamRegion?: string): Promise<boolean> {
+  const checker = await getWorkingDayCheckerForYear(parseYear(moscowDateStr), teamRegion);
+  return checker(moscowDateStr);
+}
+
+/** Краткое объяснение, почему день нерабочий (когда `isWorkingDay` = false). */
+export async function explainWhyNonWorking(moscowDateStr: string, teamRegion?: string): Promise<string> {
+  const year = parseYear(moscowDateStr);
+  const data = await loadCalendarDataForYear(year, teamRegion);
+
+  if (data.customDates.has(moscowDateStr)) {
+    return 'Пользовательский нерабочий день';
+  }
+  if (data.transferToDates.has(moscowDateStr)) {
+    return 'Перенос выходного дня (дополнительный выходной)';
+  }
+  const fed = isStaticFederalHolidayMoscow(moscowDateStr);
+  if (fed.hit && !data.transferFromDates.has(moscowDateStr)) {
+    return fed.name ? `Федеральный праздник: ${fed.name}` : 'Федеральный праздник';
+  }
+  if (data.dbFederalTransferDates.has(moscowDateStr)) {
+    return 'Нерабочий день (из календаря переносов)';
+  }
+  if (teamRegion && data.regionalDates.has(moscowDateStr)) {
+    return 'Региональный нерабочий день';
+  }
   const isoDow = getMoscowISODay(moscowDateStr);
   if (isoDow === 6 || isoDow === 7) {
-    return false;
+    if (data.transferFromDates.has(moscowDateStr)) {
+      return 'Рабочий день (перенос с выходного)';
+    }
+    return isoDow === 6 ? 'Суббота' : 'Воскресенье';
   }
-
-  if (isStaticFederalHolidayMoscow(moscowDateStr).hit) {
-    return false;
-  }
-
-  const dayStart = moscowDateStringToUtc(moscowDateStr);
-  const existsCustom = await NonWorkingDay.exists({
-    type: 'custom',
-    date: dayStart,
-  });
-  return !existsCustom;
+  return 'Нерабочий день';
 }
 
 export function listFederalHolidayStringsForYear(year: number): { date: string; name: string }[] {
@@ -89,40 +198,68 @@ export function listFederalHolidayStringsForYear(year: number): { date: string; 
 
 export async function listNonWorkingDaysForYear(
   year: number,
+  teamRegion?: string,
 ): Promise<
   { id: string | null; date: string; type: string; description?: string; region?: string }[]
 > {
-  const federal = listFederalHolidayStringsForYear(year).map((h) => ({
-    id: null,
-    date: h.date,
-    type: 'federal' as const,
-    description: h.name,
-  }));
-
   const start = moscowDateStringToUtc(`${year}-01-01`);
   const end = moscowDateStringToUtc(`${year + 1}-01-01`);
 
-  const customs = await NonWorkingDay.find({
-    type: 'custom',
-    date: { $gte: start, $lt: end },
-  }).lean();
+  const [rows, transfers, checker] = await Promise.all([
+    NonWorkingDay.find({ date: { $gte: start, $lt: end } }).lean(),
+    HolidayTransfer.find({ year }).lean(),
+    getWorkingDayCheckerForYear(year, teamRegion),
+  ]);
 
-  const customMapped = customs.map((c) => ({
-    id: c._id.toString(),
-    date: utcDateToMoscowDateString(c.date),
-    type: 'custom' as const,
-    description: c.description,
-    region: c.region,
-  }));
+  const transferFromDates = new Set(transfers.map((t) => utcDateToMoscowDateString(t.fromDate)));
+  const items: { id: string | null; date: string; type: string; description?: string; region?: string }[] = [];
 
-  const byDate = new Map<string, { id: string | null; date: string; type: string; description?: string; region?: string }>();
-
-  for (const f of federal) {
-    byDate.set(f.date, f);
-  }
-  for (const c of customMapped) {
-    byDate.set(c.date, c);
+  for (const h of listFederalHolidayStringsForYear(year)) {
+    if (!transferFromDates.has(h.date)) {
+      items.push({ id: null, date: h.date, type: 'federal', description: h.name });
+    }
   }
 
-  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+  for (const tr of transfers) {
+    items.push({
+      id: tr._id.toString(),
+      date: utcDateToMoscowDateString(tr.toDate),
+      type: 'transfer',
+      description: tr.description || 'Перенесенный выходной день',
+    });
+  }
+
+  for (const row of rows) {
+    if (row.type === 'regional' && teamRegion && row.region !== teamRegion) {
+      continue;
+    }
+    if (row.type === 'regional' && !teamRegion) {
+      continue;
+    }
+    const date = utcDateToMoscowDateString(row.date);
+    const isNonWorking = !checker(date);
+    if (!isNonWorking && row.type !== 'regional' && row.type !== 'custom') {
+      continue;
+    }
+    items.push({
+      id: row._id.toString(),
+      date,
+      type: row.type,
+      description: row.description,
+      region: row.region,
+    });
+  }
+
+  const uniq = new Map<string, { id: string | null; date: string; type: string; description?: string; region?: string }>();
+  for (const item of items) {
+    const key = `${item.date}|${item.type}|${item.region ?? ''}|${item.description ?? ''}`;
+    if (!uniq.has(key)) {
+      uniq.set(key, item);
+    }
+  }
+
+  return [...uniq.values()].sort((a, b) => {
+    const dateCmp = a.date.localeCompare(b.date);
+    return dateCmp !== 0 ? dateCmp : a.type.localeCompare(b.type);
+  });
 }

@@ -2,9 +2,9 @@ import mongoose, { Schema, type Document, type Model, type Types } from 'mongoos
 
 export interface IUser extends Document {
   fullName: string;
-  email?: string;
   teamId: Types.ObjectId;
   isActive: boolean;
+  onMaternityLeave: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -12,9 +12,9 @@ export interface IUser extends Document {
 const userSchema = new Schema<IUser>(
   {
     fullName: { type: String, required: true, trim: true },
-    email: { type: String, trim: true },
     teamId: { type: Schema.Types.ObjectId, ref: 'Team', required: true, index: true },
     isActive: { type: Boolean, default: true },
+    onMaternityLeave: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
