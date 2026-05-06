@@ -2,6 +2,15 @@ import { addDays } from 'date-fns';
 import type { ClientSession, Types } from 'mongoose';
 import mongoose from 'mongoose';
 
+import { PresentationLog } from '../models/PresentationLog.js';
+import { QueueDaySubstitution } from '../models/QueueDaySubstitution.js';
+import { QueueOrder } from '../models/QueueOrder.js';
+import { Team } from '../models/Team.js';
+import { User } from '../models/User.js';
+import { Vacation } from '../models/Vacation.js';
+import { getMoscowDateString, moscowDateStringToUtc, nextMoscowDateString } from '../utils/dateHelpers.js';
+import { explainWhyNonWorking, getWorkingDayCheckerForYear, isWorkingDay } from './calendarService.js';
+
 /** Транзакции Mongoose требуют replica set или mongos; локальный одиночный mongod падает с этой ошибкой. */
 let cachedTransactionsSupported: boolean | undefined;
 
@@ -27,14 +36,6 @@ async function isMongoTransactionsSupported(): Promise<boolean> {
     return false;
   }
 }
-import { PresentationLog } from '../models/PresentationLog.js';
-import { QueueDaySubstitution } from '../models/QueueDaySubstitution.js';
-import { QueueOrder } from '../models/QueueOrder.js';
-import { Team } from '../models/Team.js';
-import { User } from '../models/User.js';
-import { Vacation } from '../models/Vacation.js';
-import { getMoscowDateString, moscowDateStringToUtc, nextMoscowDateString } from '../utils/dateHelpers.js';
-import { explainWhyNonWorking, getWorkingDayCheckerForYear, isWorkingDay } from './calendarService.js';
 
 function toOid(id: string): Types.ObjectId {
   return new mongoose.Types.ObjectId(id);

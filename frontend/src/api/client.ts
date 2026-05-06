@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getActivePinia } from 'pinia';
 
 const baseURL = import.meta.env.VITE_API_URL ?? '/api';
 
@@ -17,9 +18,15 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (r) => r,
-  (err) => {
-    if (err?.response?.status === 401) {
+  async (err: unknown) => {
+    const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+    if (status === 401) {
       localStorage.removeItem('lk_daily_token');
+      const { useAuthStore } = await import('@/stores/auth');
+      const pinia = getActivePinia();
+      if (pinia) {
+        useAuthStore(pinia).logout();
+      }
     }
     return Promise.reject(err);
   },

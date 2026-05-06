@@ -29,6 +29,7 @@ interface JwtAdminClaims {
   login: string;
 }
 
+/** Публичные GET с optional auth: битый/просроченный Bearer не даёт 401 — запрос идёт без req.auth. */
 export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
@@ -39,12 +40,12 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   try {
     const decoded = jwt.verify(token, env.jwtSecret) as JwtAdminClaims & { iat?: number; exp?: number };
     if (!mongoose.isValidObjectId(decoded.adminId)) {
-      next(new HttpError(401, 'Invalid or expired token'));
+      next();
       return;
     }
     const admin = await Admin.findById(decoded.adminId).select('login role teamIds').lean();
     if (!admin) {
-      next(new HttpError(401, 'Invalid or expired token'));
+      next();
       return;
     }
     const role: AdminRole = admin.role === 'team-lead' ? 'team-lead' : 'super';
@@ -57,7 +58,7 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
     };
     next();
   } catch {
-    next(new HttpError(401, 'Invalid or expired token'));
+    next();
   }
 }
 
