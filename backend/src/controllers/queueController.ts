@@ -10,11 +10,12 @@ import {
   getQueueInsightsForToday,
   getQueueState,
   getUpcomingPresenters,
+  presentationLogExistsForTeamMoscowDay,
   recordPresentation,
   replaceQueueOrder,
   sortQueueAlphabetically,
 } from '../services/queueService.js';
-import { formatMoscowWeekdayLongRu } from '../utils/dateHelpers.js';
+import { formatMoscowWeekdayLongRu, getMoscowDateString } from '../utils/dateHelpers.js';
 import { buildIcsCalendar, type IcsEventInput } from '../utils/ics.js';
 
 const orderBody = Joi.object({
@@ -64,11 +65,13 @@ export async function getCurrent(req: Request, res: Response): Promise<void> {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
   try {
-    const [result, insights] = await Promise.all([
+    const moscowToday = getMoscowDateString(new Date());
+    const [result, insights, alreadyRecordedToday] = await Promise.all([
       getCurrentPresenter(teamId),
       getQueueInsightsForToday(teamId),
+      presentationLogExistsForTeamMoscowDay(teamId, moscowToday),
     ]);
-    res.json({ teamId, result, insights });
+    res.json({ teamId, result, insights, alreadyRecordedToday });
   } catch (e) {
     if (e instanceof Error && e.message === 'TEAM_NOT_FOUND') {
       throw new HttpError(404, 'Team not found');

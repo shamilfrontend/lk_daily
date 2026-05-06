@@ -94,6 +94,7 @@ async function mockApiForQueueActions(page: Page): Promise<void> {
             rotationUserId: MOCK_USER_A,
           },
           insights: { vacationUserIds: [], maternityUserIds: [] },
+          alreadyRecordedToday: false,
         }),
       });
       return;

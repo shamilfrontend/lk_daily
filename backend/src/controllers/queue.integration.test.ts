@@ -80,6 +80,7 @@ describe('queue API (integration)', () => {
     expect(res.body.result.kind).toBe('ok');
     expect(res.body.result.user._id).toBe(userA);
     expect(res.body.insights).toEqual({ vacationUserIds: [], maternityUserIds: [] });
+    expect(res.body.alreadyRecordedToday).toBe(false);
   });
 
   it('POST /queue/present rotates queue', async () => {
@@ -91,6 +92,10 @@ describe('queue API (integration)', () => {
     expect(res.status).toBe(200);
     expect(res.body.newUserIds[0]).toBe(userB);
     expect(res.body.newUserIds[1]).toBe(userA);
+
+    const cur = await request(app).get('/api/queue/current').query({ teamId });
+    expect(cur.status).toBe(200);
+    expect(cur.body.alreadyRecordedToday).toBe(true);
   });
 
   it('POST /queue/skip records skip status', async () => {

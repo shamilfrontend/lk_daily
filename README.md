@@ -6,14 +6,14 @@
 
 - Node.js 20+
 - Yarn 1.x
-- Локально запущенный MongoDB (`mongod` или облако), либу [Docker Compose](#docker-compose-api--mongodb)
+- MongoDB с **replica set** (локально или облако) — см. [MongoDB и replica set](#mongodb-и-replica-set)
 
 ## Переменные окружения (backend)
 
 Скопируйте `backend/.env.example` в `backend/.env` и при необходимости измените значения:
 
 - `PORT` — порт API (по умолчанию `4000`)
-- `MONGO_URI` — строка подключения MongoDB. Операции очереди используют **транзакции** и требуют **MongoDB replica set** (в Docker Compose поднимается одноузловой `rs0`, в URI задано `?replicaSet=rs0`). Если приходит ошибка вида `Transaction numbers are only allowed on a replica set member or mongos`, значит сервер запущен как обычный standalone — см. раздел [MongoDB и replica set](#mongodb-и-replica-set).
+- `MONGO_URI` — строка подключения MongoDB. Операции очереди используют **транзакции** и требуют **MongoDB replica set** (в URI обычно есть `?replicaSet=…`). Если приходит ошибка вида `Transaction numbers are only allowed on a replica set member or mongos`, значит сервер запущен как обычный standalone — см. раздел [MongoDB и replica set](#mongodb-и-replica-set).
 - `JWT_SECRET` — секрет подписи JWT
 - `ADMIN_LOGIN`, `ADMIN_PASSWORD` — учётная запись администратора (создаётся при первом старте, если коллекция `Admin` пуста)
 - `CORS_ORIGINS` — через запятую список разрешённых origin фронта (например `http://localhost:5173`). **Пусто** — разрешены все origin (удобно для разработки). В продакшене задайте явный список.
@@ -51,7 +51,7 @@
 
 ### Порядок внедрения улучшений (дорожная карта)
 
-Уже в продукте: MVP; статистика по команде (`GET /api/stats/team`, страница `/admin/stats`); подмена докладчика и обмен датами подмен (`POST /api/queue/substitutions/swap-days`); лимиты `RATE_LIMIT_API_MAX` / `RATE_LIMIT_EXPORT_MAX`; идентификатор запроса `requestId` в access-логах; `GET /metrics`; Docker Compose с nginx и CSP.
+Уже в продукте: MVP; статистика по команде (`GET /api/stats/team`, страница `/admin/stats`); подмена докладчика и обмен датами подмен (`POST /api/queue/substitutions/swap-days`); лимиты `RATE_LIMIT_API_MAX` / `RATE_LIMIT_EXPORT_MAX`; идентификатор запроса `requestId` в access-логах; `GET /metrics`; пример nginx и CSP в `frontend/nginx.conf`.
 
 Идеи на следующие итерации:
 
@@ -86,11 +86,11 @@ API: http://localhost:4000
 
 Транзакции в [backend/src/services/queueService.ts](backend/src/services/queueService.ts) (`recordPresentation`, обмен подменами) работают только на **replica set** или **mongos**, не на standalone `mongod`.
 
-- **Docker Compose** из репозитория: Mongo запускается с `--replSet rs0`, инициализация в healthcheck; API получает `MONGO_URI` с `replicaSet=rs0`.
-- **Backend на хосте, Mongo в Docker** (порт `27017` проброшен): в `backend/.env` укажите  
+- **Одноузловой replica set на той же машине:** поднимите `mongod` с `replication.replSetName` (например `rs0`), выполните `rs.initiate()` один раз; в `backend/.env`:  
   `MONGO_URI=mongodb://127.0.0.1:27017/lk-daily?replicaSet=rs0&directConnection=true`  
-  (`directConnection=true` нужен, чтобы драйвер не подменял адрес на имя контейнера из топологии.)
-- **Свой mongod на машине:** запустите с репликой и один раз выполните `rs.initiate()` (см. документацию MongoDB), затем добавьте в URI `?replicaSet=<имя>`.
+  (`directConnection=true` удобен для единственного члена набора.)
+- **MongoDB Atlas / облако:** используйте выданный URI с replica set.
+- **Свой кластер:** в URI укажите `?replicaSet=<имя>` согласно топологии.
 
 ### Сборка production
 
@@ -99,22 +99,7 @@ cd backend && yarn build && yarn start
 cd frontend && yarn build && yarn preview
 ```
 
-### Docker Compose (API + MongoDB + фронт)
-
-Из корня репозитория:
-
-```bash
-cp .env.example .env   # задайте JWT_SECRET, ADMIN_LOGIN, ADMIN_PASSWORD
-docker compose up --build
-```
-
-- **Фронт** (nginx + статика Vite): http://localhost:4173 — в браузере запросы идут на **`/api` того же origin**, nginx проксирует их на контейнер `api:4000`. Сборка фронта использует `VITE_API_URL=/api` по умолчанию.
-- **API напрямую**: порт `4000` (удобно для отладки и `curl /health`).
-- **MongoDB**: `27017` на хосте, данные в томе `mongo_data`; контейнер поднимает **одноузловой replica set `rs0`** (нужно для транзакций очереди).
-
-Переменные для Compose см. [.env.example](.env.example). Для CORS укажите origin страницы фронта, например `CORS_ORIGINS=http://localhost:4173,http://127.0.0.1:4173`.
-
-У статики в контейнере `frontend` включены заголовки безопасности и **Content-Security-Policy** (см. [frontend/nginx.conf](frontend/nginx.conf)); при смене домена или CDN при необходимости скорректируйте директивы.
+Пример nginx для продакшена (статика + прокси `/api` на backend) и **Content-Security-Policy** — [frontend/nginx.conf](frontend/nginx.conf); при смене домена или CDN при необходимости скорректируйте директивы. Деплой на VPS без контейнеров — [vps_settings.md](vps_settings.md).
 
 ### Тесты и линтер (backend)
 
@@ -192,7 +177,7 @@ curl -sS -X POST "https://<host>/api/hooks/notify-today" \
   -d '{"teamId":"<ID_КОМАНДЫ>"}'
 ```
 
-При Docker Compose с nginx используйте URL фронта того же origin, например `https://<домен>/api/hooks/notify-today`, если reverse proxy проксирует `/api` на backend.
+Если фронт и API за одним reverse proxy с префиксом `/api`, вызывайте, например, `https://<домен>/api/hooks/notify-today`.
 
 3. Для нескольких команд — отдельный вызов на каждую `teamId` или несколько cron-задач.
 

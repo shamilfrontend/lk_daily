@@ -65,7 +65,15 @@ const substitutionHint = computed(() => {
 const canAct = computed(() => {
   if (!auth.isAdmin) return false;
   const r = queue.current?.result;
-  return Boolean(r && r.kind === 'ok');
+  if (!r || r.kind !== 'ok') return false;
+  if (queue.alreadyRecordedToday) return false;
+  return true;
+});
+
+const alreadyRecordedHint = computed(() => {
+  if (!auth.isAdmin) return false;
+  const r = queue.current?.result;
+  return Boolean(r && r.kind === 'ok' && queue.alreadyRecordedToday);
 });
 
 const queueSize = computed(() => queue.order.length);
@@ -278,9 +286,12 @@ async function copyTeamDeepLink(): Promise<void> {
           <p v-if="substitutionHint" class="hero-card__reason hero-card__reason--muted">{{ substitutionHint }}</p>
           <p class="hero-card__hint">Дата: {{ today }} · Прогнозов на ближайшие дни: {{ nextPresenterCount }}</p>
           <p v-if="actionError" class="error">{{ actionError }}</p>
+          <p v-if="alreadyRecordedHint" class="hero-card__reason hero-card__reason--muted">
+            За сегодня для этой команды отметка уже сделана.
+          </p>
           <div v-if="auth.isAdmin" class="actions-column">
-            <label class="skip-rotate-label">
-              <input v-model="skipWithoutRotation" type="checkbox" />
+            <label class="skip-rotate-label" :class="{ 'skip-rotate-label--disabled': !canAct || queue.loading }">
+              <input v-model="skipWithoutRotation" type="checkbox" :disabled="!canAct || queue.loading" />
               Пропуск без сдвига очереди
             </label>
             <div class="actions-row">
@@ -532,6 +543,11 @@ async function copyTeamDeepLink(): Promise<void> {
   font-size: 0.9rem;
   color: var(--muted);
   cursor: pointer;
+}
+
+.skip-rotate-label--disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .queue {

@@ -60,13 +60,3 @@ jobs:
             frontend/test-results
             frontend/playwright-report
           if-no-files-found: ignore
-
-  docker-build:
-    runs-on: ubuntu-latest
-    needs: [backend, frontend]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build backend image
-        run: docker build -t lk-daily-backend ./backend
-      - name: Build frontend image
-        run: docker build -t lk-daily-frontend ./frontend

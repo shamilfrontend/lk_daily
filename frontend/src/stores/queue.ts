@@ -11,6 +11,8 @@ import { getApiErrorMessage } from '@/utils/apiError';
 
 export const useQueueStore = defineStore('queue', () => {
   const current = ref<{ teamId: string; result: CurrentPresenterResult } | null>(null);
+  /** За текущую московскую дату для команды уже есть запись в логе выступлений */
+  const alreadyRecordedToday = ref(false);
   const insightsToday = ref<QueueInsightsToday | null>(null);
   const order = ref<string[]>([]);
   const upcoming = ref<UpcomingRow[]>([]);
@@ -23,10 +25,12 @@ export const useQueueStore = defineStore('queue', () => {
     error.value = null;
     try {
       const [c, o, u, s] = await Promise.all([
-        api.get<{ teamId: string; result: CurrentPresenterResult; insights: QueueInsightsToday }>(
-          '/queue/current',
-          { params: { teamId } },
-        ),
+        api.get<{
+          teamId: string;
+          result: CurrentPresenterResult;
+          insights: QueueInsightsToday;
+          alreadyRecordedToday?: boolean;
+        }>('/queue/current', { params: { teamId } }),
         api.get<{ teamId: string; userIds: string[] }>('/queue/order', { params: { teamId } }),
         api.get<{ teamId: string; days: number; rows: UpcomingRow[] }>('/queue/upcoming', {
           params: { teamId, days: upcomingDays },
@@ -34,6 +38,7 @@ export const useQueueStore = defineStore('queue', () => {
         api.get<{ teamId: string; rows: QueueSubstitutionRow[] }>('/queue/substitutions', { params: { teamId } }),
       ]);
       current.value = { teamId: c.data.teamId, result: c.data.result };
+      alreadyRecordedToday.value = c.data.alreadyRecordedToday === true;
       insightsToday.value = c.data.insights ?? { vacationUserIds: [], maternityUserIds: [] };
       order.value = o.data.userIds;
       upcoming.value = u.data.rows;
@@ -123,6 +128,7 @@ export const useQueueStore = defineStore('queue', () => {
 
   return {
     current,
+    alreadyRecordedToday,
     insightsToday,
     order,
     upcoming,

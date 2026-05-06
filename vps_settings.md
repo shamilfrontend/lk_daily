@@ -1,17 +1,17 @@
-# Выкладка LK Daily на VPS (Ubuntu, Docker Compose)
+# Выкладка LK Daily на VPS (Ubuntu, без Docker)
 
-Инструкция для развёртывания без домена и HTTPS: доступ по `http://<IP_VPS>:4173` (фронт), опционально API на порту `4000`. Обновления — вручную (`git pull` + пересборка контейнеров).
+Инструкция для развёртывания без домена и HTTPS: доступ по `http://<IP_VPS>:4173` (статический фронт через nginx), API на `127.0.0.1:4000` (наружу — только если открыли порт в firewall). Обновления — вручную (`git pull`, пересборка, перезапуск сервиса).
 
-Стек в репозитории: `docker-compose.yml` (MongoDB, API на Node.js, статика Vue через nginx). Переменные окружения для compose — корневой `.env` (шаблон: `.env.example`).
+Стек: MongoDB на хосте (одноузловой replica set `rs0` — нужен для транзакций очереди), API на Node.js (systemd), статика Vue за nginx. Переменные API — `backend/.env` (шаблон: `backend/.env.example`).
 
 ---
 
 ## 1. Требования к VPS
 
 - **ОС:** Ubuntu 22.04 или 24.04 LTS.
-- **Ресурсы (минимум):** 2 vCPU, 2 GB RAM, 20 GB SSD. При 2 GB RAM желательен swap (см. раздел 2).
+- **Ресурсы (минимум):** 2 vCPU, 2 GB RAM, 20 GB SSD. При 2 GB RAM желателен swap (см. раздел 2).
 - **Порты у провайдера / security group:** открыть **22** (SSH), **4173** (веб-интерфейс). Порт **4000** — только если нужен прямой доступ к API снаружи (отладка); иначе не открывать.
-- **Порт 27017 (MongoDB):** в `docker-compose.yml` он проброшен на хост (`27017:27017`), по умолчанию слушает все интерфейсы хоста; снаружи порт **не открывать** в firewall — так доступ из интернета к БД перекрыт. Контейнеры по-прежнему ходят в Mongo по имени `mongo:27017`. Для жёсткой привязки только к localhost можно заменить проброс на `127.0.0.1:27017:27017` (правка compose на сервере / override).
+- **MongoDB (`mongod`):** слушает **только localhost** (`127.0.0.1`), порт **27017** снаружи **не открывать**.
 
 ---
 
@@ -70,20 +70,28 @@ sudo ufw status
 
 ---
 
-## 4. Docker и Docker Compose
+## 4. Node.js, Yarn, MongoDB, nginx
 
-Официальная установка Docker Engine (пример для Ubuntu):
+**Node.js 20** (например, через NodeSource или `nvm` — главное, чтобы `node` и `corepack`/`yarn` были доступны пользователю `deploy`).
 
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker deploy
+# Пример: официальный бинарь или репозиторий NodeSource — см. документацию Node.js
+corepack enable
+corepack prepare yarn@1.22.22 --activate
 ```
 
-Выйдите из сессии и зайдите снова под `deploy`, чтобы подхватилась группа `docker`. Проверка:
+**MongoDB 7.x** установите по [инструкции MongoDB для Ubuntu](https://www.mongodb.com/docs/manual/tutorial/install-mongodb-on-ubuntu/). Обязательно настройте **replica set** на одном узле для базы приложения (`lk-daily`):
+
+- В `/etc/mongod.conf` (пути могут отличаться):  
+  `replication.replSetName: "rs0"`, привязка `net.bindIp: 127.0.0.1`.
+- Запуск: `sudo systemctl enable --now mongod`.
+- Инициализация один раз (через `mongosh`):  
+  `rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "127.0.0.1:27017" }] })`.
+
+**nginx:**
 
 ```bash
-docker --version
-docker compose version
+sudo apt install -y nginx
 ```
 
 ---
@@ -101,106 +109,116 @@ cd /opt/lk-daily
 Клонирование:
 
 - **HTTPS:** `git clone <URL_репозитория> .`
-- **SSH (deploy key):** настройте ключ на сервере и в настройках репозитория, затем `git clone git@github.com:org/lk-daily.git .` (URL замените на свой).
+- **SSH (deploy key):** настройте ключ на сервере и в репозитории, затем клонируйте по SSH.
+
+Первый деплой (сборки):
+
+```bash
+cd /opt/lk-daily/backend && yarn install --frozen-lockfile && yarn build
+cd /opt/lk-daily/frontend && yarn install --frozen-lockfile && VITE_API_URL=/api yarn build
+```
+
+Каталог статики для nginx: `/opt/lk-daily/frontend/dist`.
 
 ---
 
-## 6. Переменные окружения (`.env`)
+## 6. Переменные окружения (`backend/.env`)
 
 ```bash
-cd /opt/lk-daily
+cd /opt/lk-daily/backend
 cp .env.example .env
-nano .env   # или vim
+nano .env
 ```
 
-Обязательно задайте (см. также `backend/src/config/env.ts` — в **production** API не стартует при небезопасной конфигурации):
+Обязательно задайте (см. `backend/src/config/env.ts` — в **production** API не стартует при небезопасной конфигурации):
 
 | Переменная | Назначение |
 |------------|------------|
-| `JWT_SECRET` | Секрет JWT, **не короче 32 символов**, не значение `dev-secret-change-me`. Пример генерации: `openssl rand -hex 32` |
-| `ADMIN_LOGIN` | Логин админа. **Нельзя** пара `admin` / `admin123` |
-| `ADMIN_PASSWORD` | Надёжный пароль админа |
-| `CORS_ORIGINS` | Список origin через запятую. В production **обязателен хотя бы один** origin. Для доступа по IP: `http://<IP_VPS>:4173,http://127.0.0.1:4173` |
+| `MONGO_URI` | Например `mongodb://127.0.0.1:27017/lk-daily?replicaSet=rs0&directConnection=true` |
+| `JWT_SECRET` | Не короче 32 символов; не значение из dev-примеров. Генерация: `openssl rand -hex 32` |
+| `ADMIN_LOGIN` / `ADMIN_PASSWORD` | Нельзя пара `admin` / `admin123` |
+| `CORS_ORIGINS` | Через запятую origin фронта. Для доступа по IP: `http://<IP_VPS>:4173,http://127.0.0.1:4173` |
 
-Пример строки для доступа только с VPS по IP (подставьте свой IP):
+Дополнительно см. закомментированные переменные в `backend/.env.example` (`RATE_LIMIT_*`, webhook).
 
-```env
-JWT_SECRET=<вывод openssl rand -hex 32>
-ADMIN_LOGIN=lk-admin
-ADMIN_PASSWORD=<сильный_пароль>
-CORS_ORIGINS=http://203.0.113.10:4173,http://127.0.0.1:4173
-```
-
-Дополнительные переменные для API (если понадобятся) сейчас **не** проброшены в `docker-compose.yml` для сервиса `api`. Их можно добавить в `docker-compose.override.yml` (не коммитить секреты) или расширить секцию `environment` у `api` и пересобрать. См. `backend/.env.example`: `RATE_LIMIT_*`, `OUTBOUND_WEBHOOK_URL`, `WEBHOOK_TRIGGER_SECRET`.
-
-**Учётная запись админа:** при первом запуске, если коллекция `Admin` в MongoDB пуста, создаётся пользователь из `ADMIN_*`. Смена пароля только через переменные **после** первого создания не подхватывается автоматически — для смены нужна работа с БД или отдельная логика в приложении.
+**Учётная запись админа:** при первом запуске при пустой коллекции `Admin` создаётся пользователь из `ADMIN_*`. Смена пароля только через переменные после первого создания в приложении не реализована — нужна работа с БД или отдельная функция.
 
 ---
 
-## 7. Первый запуск
+## 7. systemd: юнит API
 
-Из корня репозитория (где лежит `docker-compose.yml`):
+Файл `/etc/systemd/system/lk-daily-api.service` (отредактируйте `User=` при необходимости):
 
-```bash
-cd /opt/lk-daily
-docker compose up -d --build
-docker compose ps
+```ini
+[Unit]
+Description=LK Daily API
+After=network.target mongod.service
+
+[Service]
+Type=simple
+User=deploy
+WorkingDirectory=/opt/lk-daily/backend
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
 ```
 
-Проверки на сервере:
+Если бинарь `node` в другом пути: `which node` и подставьте в `ExecStart`.
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now lk-daily-api
+sudo systemctl status lk-daily-api
+```
+
+Логи: `journalctl -u lk-daily-api -f`.
+
+---
+
+## 8. nginx (статика + `/api`)
+
+Скопируйте содержимое [frontend/nginx.conf](frontend/nginx.conf) в файл сайта, например `/etc/nginx/sites-available/lk-daily`, поправив пути **`root`** на абсолютный:
+
+```nginx
+root /opt/lk-daily/frontend/dist;
+```
+
+В том же конфиге `proxy_pass` для `/api/` должен указывать на `http://127.0.0.1:4000/` (backend слушает `PORT` из `.env`, по умолчанию 4000).
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/lk-daily /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+Проверки:
 
 ```bash
 curl -sS http://127.0.0.1:4000/health
 curl -sI http://127.0.0.1:4173/
 ```
 
-В браузере: `http://<IP_VPS>:4173/` — фронт; запросы к `/api` проксируются nginx контейнера `frontend` на сервис `api` (см. `frontend/nginx.conf`).
-
----
-
-## 8. Логи и повседневные операции
-
-```bash
-cd /opt/lk-daily
-docker compose logs -f api
-docker compose logs -f frontend
-docker compose logs -f mongo
-```
-
-Перезапуск одного сервиса:
-
-```bash
-docker compose restart api
-```
-
-Остановка без удаления тома с данными MongoDB:
-
-```bash
-docker compose down
-```
-
-Том `mongo_data` сохраняется; данные БД не пропадают при `down`.
+В браузере: `http://<IP_VPS>:4173/`.
 
 ---
 
 ## 9. Обновление приложения (вручную)
 
-Обычный цикл (пересборка образов при необходимости):
-
 ```bash
 cd /opt/lk-daily
 git pull
-docker compose up -d --build
-docker image prune -f
+cd backend && yarn install --frozen-lockfile && yarn build
+cd ../frontend && yarn install --frozen-lockfile && VITE_API_URL=/api yarn build
+sudo systemctl restart lk-daily-api
+sudo nginx -t && sudo systemctl reload nginx
 ```
-
-Если подозреваете устаревший код из кэша слоёв Docker, пересоберите без кэша: `docker compose build --no-cache` и затем `docker compose up -d`.
 
 ---
 
 ## 10. Резервное копирование MongoDB
-
-Создайте каталог для бэкапов и скрипт (один раз, под `deploy` или с `sudo` для `/var/backups`):
 
 ```bash
 sudo mkdir -p /var/backups/lk-daily
@@ -208,43 +226,35 @@ sudo chown deploy:deploy /var/backups/lk-daily
 mkdir -p /opt/lk-daily/scripts
 ```
 
-Файл `/opt/lk-daily/scripts/backup-mongo.sh`:
+`/opt/lk-daily/scripts/backup-mongo.sh`:
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-cd /opt/lk-daily
 STAMP="$(date +%Y-%m-%d_%H%M)"
-docker compose exec -T mongo mongodump --archive --gzip --db=lk-daily \
+URI='mongodb://127.0.0.1:27017/lk-daily?replicaSet=rs0&directConnection=true'
+mongodump --uri="$URI" --archive --gzip \
   > "/var/backups/lk-daily/lk-daily-${STAMP}.archive.gz"
 find /var/backups/lk-daily -type f -mtime +14 -delete
 ```
+
+Убедитесь, что пользователь cron может вызывать `mongodump` (обычно пакет `mongodb-database-tools`; при ошибке доступа добавьте в PATH или вызывайте с полным путём).
 
 ```bash
 chmod +x /opt/lk-daily/scripts/backup-mongo.sh
 ```
 
-Cron (ежедневно в 03:00 по времени сервера):
-
-```bash
-crontab -e
-```
-
-Строка:
+Cron (ежедневно в 03:00):
 
 ```cron
 0 3 * * * /opt/lk-daily/scripts/backup-mongo.sh >> /var/log/lk-daily-backup.log 2>&1
 ```
 
-**Восстановление** из файла на хосте (подставьте путь к архиву):
+**Восстановление** (осторожно: `--drop` удалит коллекции в БД перед импортом):
 
 ```bash
-cd /opt/lk-daily
-cat /var/backups/lk-daily/lk-daily-YYYY-MM-DD_HHMM.archive.gz | \
-  docker compose exec -T mongo mongorestore --archive --gzip --drop
+mongorestore --uri="$URI" --archive --gzip --drop < /var/backups/lk-daily/lk-daily-YYYY-MM-DD_HHMM.archive.gz
 ```
-
-Осторожно: `--drop` удалит текущие коллекции в базе `lk-daily` перед импортом.
 
 ---
 
@@ -252,10 +262,10 @@ cat /var/backups/lk-daily/lk-daily-YYYY-MM-DD_HHMM.archive.gz | \
 
 - [ ] `JWT_SECRET` ≥ 32 символов, не дефолт из dev.
 - [ ] `ADMIN_LOGIN` / `ADMIN_PASSWORD` не пара `admin` / `admin123`.
-- [ ] `CORS_ORIGINS` задан явно (не пустой список в production).
-- [ ] Порт MongoDB **27017** не открыт в firewall и у провайдера.
-- [ ] Включены `ufw` и `fail2ban` для SSH.
-- [ ] Регулярно: `sudo apt update && sudo apt upgrade -y`, при необходимости обновление образа `mongo:7` (`docker compose pull` при смене тега в compose).
+- [ ] `CORS_ORIGINS` задан явно в production.
+- [ ] MongoDB только на localhost; порт 27017 не открыт в firewall.
+- [ ] Включены `ufw` и `fail2ban`.
+- [ ] Регулярно: `sudo apt update && sudo apt upgrade -y`; обновления MongoDB по политике вашей сборки (`apt`, официальный репозиторий).
 
 ---
 
@@ -263,16 +273,10 @@ cat /var/backups/lk-daily/lk-daily-YYYY-MM-DD_HHMM.archive.gz | \
 
 | Симптом | Что проверить |
 |---------|----------------|
-| Контейнер `api` постоянно перезапускается | `docker compose logs api` — часто отказ из-за production-проверок: короткий `JWT_SECRET`, дефолтные admin-учётные данные, пустой `CORS_ORIGINS`. |
-| 502 / таймаут на `/api` с фронта | `docker compose ps` — healthy ли `mongo` и `api`; логи `mongo` и `api`. |
-| Нет места на диске | `docker system df`; `docker image prune -af` (осторожно); размер `/var/lib/docker` и тома `mongo_data`. |
-| После смены `.env` не подхватилось | Пересоздать контейнер API: `docker compose up -d --force-recreate api` (переменные задаются при создании контейнера). |
-
-Проверка API снаружи (если открыт порт 4000):
-
-```bash
-curl -sS "http://<IP_VPS>:4000/health"
-```
+| API не стартует (`systemctl status`) | Логи `journalctl -u lk-daily-api -n 100` — часто отказ из-за production-проверок: короткий `JWT_SECRET`, дефолтные admin-учётные данные, пустой `CORS_ORIGINS`. |
+| Ошибки транзакций MongoDB | Replica set не инициализирован или неверный `MONGO_URI` (`replicaSet`, `directConnection`). |
+| 502 на `/api` с фронта | `systemctl status lk-daily-api`, `curl http://127.0.0.1:4000/health`, логи nginx. |
+| После смены `backend/.env` | `sudo systemctl restart lk-daily-api`. |
 
 ---
 
@@ -280,63 +284,33 @@ curl -sS "http://<IP_VPS>:4000/health"
 
 | Порт | Назначение |
 |------|------------|
-| 4173 | Веб (nginx + SPA), прокси `/api` → backend |
-| 4000 | API напрямую (опционально снаружи) |
-| 27017 | MongoDB: проброс на хост в compose; снаружи не открывать; API и другие контейнеры — через `mongo:27017` |
-
-В текущем `docker-compose.yml` Mongo запускается как **одноузловой replica set `rs0`** (требование транзакций при операциях очереди). Строка `MONGO_URI` у сервиса `api` содержит `replicaSet=rs0`.
+| 4173 | nginx: статика SPA + прокси `/api` → backend |
+| 4000 | API (по умолчанию); снаружи только при явном открытии в UFW |
+| 27017 | MongoDB на localhost; снаружи не открывать |
 
 ---
 
-## 14. HTTPS и reverse proxy (рекомендуется для доступа из интернета)
+## 14. HTTPS и reverse proxy
 
-Без домена достаточно HTTP по IP (раздел 7). Если есть **домен**, выдайте сертификат и терминируйте TLS на хосте; upstream остаётся текущий стек Compose (фронт `:4173`, опционально API `:4000` только локально).
-
-**Вариант A — Caddy (авто Let’s Encrypt):** установите Caddy, укажите сайт с `reverse_proxy 127.0.0.1:4173`; задайте переменные окружения API и фронта через тот же `.env`, что и для Compose; обновите `CORS_ORIGINS` на `https://ваш-домен`.
-
-**Вариант B — nginx + Certbot:** виртуальный хост на `443` с `proxy_pass http://127.0.0.1:4173`, сертификаты из `/etc/letsencrypt/live/...`; для `/api` можно проксировать на `127.0.0.1:4173` (как в контейнере фронта) или напрямую на `127.0.0.1:4000` при согласовании CORS и путей.
-
-После включения HTTPS добавьте в `CORS_ORIGINS` именно `https://…`, без смешивания с HTTP того же хоста в production.
+Если есть **домен**, терминируйте TLS на хосте; upstream — nginx на `127.0.0.1:4173` или отдельный vhost с теми же `root` и `location /api/`. Обновите `CORS_ORIGINS` на `https://…`.
 
 ---
 
-## 15. Мониторинг и алерты
+## 15. Мониторинг
 
-**Жизнь сервиса:** опросите `GET /health` (ожидается HTTP `200`, тело с `"ok":true` и `"mongo":"connected"`). При `503` или недоступности хоста — алерт оператору.
-
-Примеры:
-
-- Внешний мониторинг (Uptime Kuma, Pingdom, Grafana Cloud и т.п.) с проверкой URL раз в 1–5 минут.
-- Локальный cron на VPS:
+**Жизнь сервиса:** `GET /health` (HTTP 200, `"mongo":"connected"`). Пример cron:
 
 ```cron
 */5 * * * * curl -fsS http://127.0.0.1:4000/health >/dev/null || logger -t lk-daily-health "health check failed"
 ```
 
-Дополнительно можно собирать `GET /metrics` для Prometheus-совместимых систем.
+**Диск:** следите за `/var/lib/mongodb` (или путём данных вашей установки) и каталогом бэкапов.
 
-**Диск MongoDB:** следите за заполнением тома (`docker system df`, размер volume `mongo_data`), см. раздел 10.
-
-**Логи приложения:** Winston пишет структурированные сообщения в JSON на stderr контейнера `api`; HTTP access — отдельно через morgan (в production включён `request-id`). При централизованном сборе логов парсьте JSON и коррелируйте по полю `requestId` из access-лога.
+**Логи:** structured JSON на stderr процесса Node; доступ HTTP — через morgan. Для централизованного сбора используйте `journald` или агент на хосте.
 
 ---
 
-## 16. Привязка MongoDB только к localhost (опционально)
+## 16. Вне этого документа
 
-В [docker-compose.yml](docker-compose.yml) порт Mongo проброшен как `27017:27017` на все интерфейсы хоста. На VPS безопаснее не открывать порт наружу (раздел 3) и при желании пробрасывать только loopback, чтобы даже LAN не видел БД:
-
-```yaml
-services:
-  mongo:
-    ports:
-      - '127.0.0.1:27017:27017'
-```
-
-Вынесите переопределение в `docker-compose.override.yml` на сервере или поправьте compose для продакшена осознанно. Контейнеры (`api`, др.) по-прежнему подключаются по имени `mongo:27017`.
-
----
-
-## 17. Что по-прежнему вне этого документа
-
-- CI/CD автоматом из Git — деплой по умолчанию вручную (раздел 9).
-- Детальная настройка конкретного провайдера DNS и почты для алертов.
+- Автоматический деплой из Git по умолчанию не описан — обновления вручную (раздел 9).
+- Детали DNS и алертов — по вашей инфраструктуре.
