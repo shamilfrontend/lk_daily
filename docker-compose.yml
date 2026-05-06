@@ -1,16 +1,25 @@
 services:
   mongo:
     image: mongo:7
+    # Одноузловой replica set — нужен для транзакций Mongoose (очередь / подмены).
+    command: ['mongod', '--replSet', 'rs0', '--bind_ip_all']
     ports:
       - '27017:27017'
     volumes:
       - mongo_data:/data/db
     healthcheck:
-      test: ['CMD', 'mongosh', '--quiet', '--eval', 'db.adminCommand({ ping: 1 }).ok']
+      test:
+        [
+          'CMD',
+          'mongosh',
+          '--quiet',
+          '--eval',
+          'try { rs.status() } catch (e) { rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] }) } db.adminCommand({ ping: 1 }).ok',
+        ]
       interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 15s
+      retries: 15
+      start_period: 40s
 
   api:
     build:
@@ -20,7 +29,7 @@ services:
       - '4000:4000'
     environment:
       PORT: '4000'
-      MONGO_URI: mongodb://mongo:27017/lk-daily
+      MONGO_URI: mongodb://mongo:27017/lk-daily?replicaSet=rs0
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       ADMIN_LOGIN: ${ADMIN_LOGIN:?set ADMIN_LOGIN in .env}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}

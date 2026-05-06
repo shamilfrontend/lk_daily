@@ -226,6 +226,24 @@ async function copyTeamDeepLink(): Promise<void> {
     />
 
     <template v-else>
+      <div class="home-tips card" role="note">
+        <p class="home-tips__title">Подсказки</p>
+        <ul class="home-tips__list">
+          <li>
+            <strong>Ссылка на команду.</strong> Кнопка «Ссылка на команду» копирует адрес с параметром
+            <code class="home-tips__code">?teamId=…</code> — по нему сразу открывается выбранная команда.
+          </li>
+          <li>
+            <strong>Прогноз и календарь.</strong> Таблица ниже — только рабочие дни по производственному календарю
+            (федеральные, региональные и свои исключения). ICS подтягивает прогноз с сервера через API.
+          </li>
+          <li>
+            <strong>Для администратора.</strong> Отметка «Выступил» / «Пропустить» и порядок очереди — в разделах
+            «Очередь» и связанных страницах после входа.
+          </li>
+        </ul>
+      </div>
+
       <div class="metric-grid">
         <div class="metric-card">
           <p class="metric-card__label">Команда</p>
@@ -381,6 +399,43 @@ async function copyTeamDeepLink(): Promise<void> {
 </template>
 
 <style scoped lang="scss">
+.home-tips {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-muted);
+  border: 1px dashed var(--border);
+}
+
+.home-tips__title {
+  margin: 0 0 var(--space-2);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.home-tips__list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.home-tips__list strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.home-tips__code {
+  font-size: 0.85em;
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
 .card-heading {
   display: flex;
   justify-content: space-between;
