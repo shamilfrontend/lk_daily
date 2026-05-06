@@ -148,6 +148,73 @@ async function remove(): Promise<void> {
 function goVacations(userId: string): void {
   void router.push({ name: 'admin-vacations', query: { userId } });
 }
+
+const importPreview = ref<{ fullName: string }[]>([]);
+const importModalOpen = ref(false);
+const importError = ref<string | null>(null);
+const importBusy = ref(false);
+
+function parseCsvForImport(text: string): { fullName: string }[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length === 0) {
+    return [];
+  }
+  const firstCellRaw = (lines[0].includes(';') ? lines[0].split(';') : lines[0].split(','))[0]?.trim() ?? '';
+  const maybeHeader = /^fullName$|^фио$/i.test(firstCellRaw);
+  const start = maybeHeader ? 1 : 0;
+  const rows: { fullName: string }[] = [];
+  for (let i = start; i < lines.length; i++) {
+    const cellRaw = (lines[i].includes(';') ? lines[i].split(';') : lines[i].split(','))[0]?.trim() ?? '';
+    const cell = cellRaw.replace(/^"|"$/g, '').trim();
+    if (cell.length > 0) {
+      rows.push({ fullName: cell });
+    }
+  }
+  return rows.slice(0, 500);
+}
+
+function onCsvChosen(ev: Event): void {
+  const input = ev.target as HTMLInputElement;
+  const file = input.files?.[0];
+  importError.value = null;
+  importPreview.value = [];
+  if (!file) {
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const text = String(reader.result ?? '');
+    importPreview.value = parseCsvForImport(text);
+    if (importPreview.value.length === 0) {
+      importError.value = 'Нет строк для импорта (первая колонка — ФИО, разделитель , или ;).';
+    } else {
+      importModalOpen.value = true;
+    }
+    input.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+
+async function confirmCsvImport(): Promise<void> {
+  if (!filterTeamId.value || importPreview.value.length === 0) {
+    return;
+  }
+  importBusy.value = true;
+  importError.value = null;
+  try {
+    await users.importUsers(filterTeamId.value, importPreview.value);
+    importModalOpen.value = false;
+    importPreview.value = [];
+    await refreshList();
+  } catch (e) {
+    importError.value = getApiErrorMessage(e, 'Импорт не выполнен');
+  } finally {
+    importBusy.value = false;
+  }
+}
 </script>
 
 <template>
@@ -172,6 +239,31 @@ function goVacations(userId: string): void {
           </select>
         </div>
       </div>
+    </div>
+
+    <div class="card">
+      <div class="users-list-head">
+        <div>
+          <h2 class="users-list-head__title">Импорт из CSV</h2>
+          <p class="users-list-head__subtitle">
+            Первая колонка — ФИО; первая строка может быть заголовком «fullName» или «ФИО». До 500 строк за раз.
+          </p>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="field field--grow">
+          <label for="csv">Файл</label>
+          <input
+            id="csv"
+            class="input"
+            type="file"
+            accept=".csv,text/csv"
+            :disabled="!filterTeamId"
+            @change="onCsvChosen"
+          />
+        </div>
+      </div>
+      <p v-if="importError && !importModalOpen" class="error">{{ importError }}</p>
     </div>
 
     <div class="card">
@@ -260,6 +352,34 @@ function goVacations(userId: string): void {
     </form>
   </AppModal>
 
+  <AppModal v-model="importModalOpen" title="Предпросмотр импорта" size="lg" @close="importError = null">
+    <p class="import-hint">Будет создано записей: {{ importPreview.length }}. Команда: текущий фильтр.</p>
+    <p v-if="importError" class="error">{{ importError }}</p>
+    <div class="table-wrap import-preview-table">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>ФИО</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(row, idx) in importPreview.slice(0, 20)" :key="idx">
+            <td>{{ idx + 1 }}</td>
+            <td>{{ row.fullName }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-if="importPreview.length > 20" class="import-more">… и ещё {{ importPreview.length - 20 }}</p>
+    </div>
+    <div class="actions-row">
+      <button type="button" class="btn btn--primary" :disabled="importBusy" @click="confirmCsvImport">
+        Импортировать
+      </button>
+      <button type="button" class="btn" :disabled="importBusy" @click="importModalOpen = false">Отмена</button>
+    </div>
+  </AppModal>
+
   <AppConfirmModal
     v-model="confirmOpen"
     title="Деактивировать участника?"
@@ -291,6 +411,23 @@ function goVacations(userId: string): void {
 
 .users-list-head__subtitle {
   margin-top: 0.35rem;
+  color: var(--muted);
+}
+
+.import-hint {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+}
+
+.import-preview-table {
+  max-height: 16rem;
+  overflow: auto;
+  margin-bottom: var(--space-3);
+}
+
+.import-more {
+  margin: var(--space-2) 0 0;
+  font-size: 0.9rem;
   color: var(--muted);
 }
 </style>

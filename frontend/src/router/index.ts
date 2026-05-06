@@ -73,6 +73,16 @@ const router = createRouter({
       },
       component: () => import('@/views/QueueOrderPage.vue'),
     },
+    {
+      path: '/admin/stats',
+      name: 'admin-stats',
+      meta: {
+        requiresAdmin: true,
+        pageTitle: 'Статистика',
+        pageDescription: 'Агрегированные показатели выступлений по команде.',
+      },
+      component: () => import('@/views/StatsPage.vue'),
+    },
   ],
 });
 

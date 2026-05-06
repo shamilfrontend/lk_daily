@@ -4,11 +4,13 @@ import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { RU_REGIONS } from '@/constants/ruRegions';
+import { useAuthStore } from '@/stores/auth';
 import { useTeamsStore } from '@/stores/teams';
 import type { Team } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 
 const teams = useTeamsStore();
+const auth = useAuthStore();
 
 const name = ref('');
 const description = ref('');
@@ -90,7 +92,15 @@ async function remove(): Promise<void> {
       eyebrow="Admin"
     />
 
-    <div class="card">
+    <AppState
+      v-if="!auth.isSuperAdmin"
+      title="Раздел для суперадминистратора"
+      description="Создание и удаление команд доступно только роли super. Твои команды видны в списке ниже."
+      tone="empty"
+      compact
+    />
+
+    <div v-if="auth.isSuperAdmin" class="card">
       <div class="card-heading">
         <div>
           <h2 class="card-heading__title">{{ editingId ? 'Редактирование команды' : 'Новая команда' }}</h2>
@@ -154,10 +164,11 @@ async function remove(): Promise<void> {
               <td>{{ t.name }}</td>
               <td>{{ t.region ?? '—' }}</td>
               <td>
-                <div class="actions-row">
+                <div v-if="auth.isSuperAdmin" class="actions-row">
                   <button type="button" class="btn" @click="startEdit(t)">Изменить</button>
                   <button type="button" class="btn btn--danger" @click="openRemoveModal(t)">Удалить</button>
                 </div>
+                <span v-else class="teams-readonly">Просмотр</span>
               </td>
             </tr>
           </tbody>
@@ -166,6 +177,7 @@ async function remove(): Promise<void> {
     </div>
 
     <AppConfirmModal
+      v-if="auth.isSuperAdmin"
       v-model="confirmOpen"
       title="Удалить команду?"
       :description="
@@ -190,5 +202,10 @@ async function remove(): Promise<void> {
 .card-heading__subtitle {
   margin-top: 0.35rem;
   color: var(--muted);
+}
+
+.teams-readonly {
+  color: var(--muted);
+  font-size: 0.9rem;
 }
 </style>

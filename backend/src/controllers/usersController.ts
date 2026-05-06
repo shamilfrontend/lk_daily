@@ -5,6 +5,7 @@ import { HttpError } from '../middlewares/errorHandler.js';
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
 import { appendUserToQueueEnd, removeUserFromQueue } from '../services/queueService.js';
+import { allowedTeamIdSet, assertTeamAccess } from '../utils/authz.js';
 
 const createBody = Joi.object({
   fullName: Joi.string().trim().required(),
@@ -20,8 +21,26 @@ const updateBody = Joi.object({
   onMaternityLeave: Joi.boolean(),
 }).min(1);
 
+const importBody = Joi.object({
+  teamId: Joi.string().required(),
+  rows: Joi.array()
+    .items(Joi.object({ fullName: Joi.string().trim().min(1).required() }))
+    .min(1)
+    .max(500)
+    .required(),
+});
+
 export async function listUsers(req: Request, res: Response): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
+  const allowed = allowedTeamIdSet(req.auth);
+  if (allowed) {
+    if (!teamId || !mongoose.isValidObjectId(teamId)) {
+      throw new HttpError(400, 'teamId is required');
+    }
+    if (!allowed.has(teamId)) {
+      throw new HttpError(403, 'Forbidden for this team');
+    }
+  }
   const includeInactive = req.query.includeInactive === 'true';
   const filter: Record<string, unknown> = {};
   if (teamId) {
@@ -45,6 +64,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
   if (!mongoose.isValidObjectId(value.teamId)) {
     throw new HttpError(400, 'Invalid teamId');
   }
+  assertTeamAccess(req.auth, value.teamId as string);
   const team = await Team.findById(value.teamId);
   if (!team) {
     throw new HttpError(404, 'Team not found');
@@ -73,6 +93,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   if (!user) {
     throw new HttpError(404, 'User not found');
   }
+  assertTeamAccess(req.auth, user.teamId.toString());
   const prevTeam = user.teamId;
   const prevActive = user.isActive;
 
@@ -80,6 +101,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
     if (!mongoose.isValidObjectId(value.teamId)) {
       throw new HttpError(400, 'Invalid teamId');
     }
+    assertTeamAccess(req.auth, value.teamId as string);
     const team = await Team.findById(value.teamId);
     if (!team) {
       throw new HttpError(404, 'Team not found');
@@ -117,8 +139,39 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
   if (!user) {
     throw new HttpError(404, 'User not found');
   }
+  assertTeamAccess(req.auth, user.teamId.toString());
   user.isActive = false;
   await user.save();
   await removeUserFromQueue(user.teamId, user._id);
   res.json(user);
+}
+
+export async function importUsers(req: Request, res: Response): Promise<void> {
+  const { error, value } = importBody.validate(req.body);
+  if (error) {
+    throw new HttpError(400, error.message);
+  }
+  const teamId = value.teamId as string;
+  if (!mongoose.isValidObjectId(teamId)) {
+    throw new HttpError(400, 'Invalid teamId');
+  }
+  assertTeamAccess(req.auth, teamId);
+  const team = await Team.findById(teamId);
+  if (!team) {
+    throw new HttpError(404, 'Team not found');
+  }
+  const rows = value.rows as { fullName: string }[];
+  const created: mongoose.Types.ObjectId[] = [];
+  for (const row of rows) {
+    const user = await User.create({
+      fullName: row.fullName.trim(),
+      teamId: team._id,
+      isActive: true,
+      onMaternityLeave: false,
+    });
+    await appendUserToQueueEnd(team._id, user._id);
+    created.push(user._id);
+  }
+  const users = await User.find({ _id: { $in: created } }).sort({ fullName: 1 }).lean();
+  res.status(201).json({ ok: true, created: users.length, users });
 }

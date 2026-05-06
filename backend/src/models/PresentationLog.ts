@@ -7,6 +7,8 @@ export interface IPresentationLog extends Document {
   date: Date;
   userId: Types.ObjectId | null;
   status: PresentationStatus;
+  /** Если true — очередь не сдвигали (пропуск без ротации). */
+  rotationSkipped?: boolean;
   note?: string;
   createdAt: Date;
 }
@@ -21,12 +23,14 @@ const presentationLogSchema = new Schema<IPresentationLog>(
       enum: ['presented', 'skipped', 'no_available'],
       required: true,
     },
+    rotationSkipped: { type: Boolean, default: false },
     note: { type: String, trim: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );
 
 presentationLogSchema.index({ teamId: 1, date: 1 }, { unique: true });
+presentationLogSchema.index({ teamId: 1, date: -1 });
 
 export const PresentationLog: Model<IPresentationLog> = mongoose.model<IPresentationLog>(
   'PresentationLog',

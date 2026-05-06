@@ -88,16 +88,22 @@ function tryMapQueueDomainError(err: unknown): HttpError | null {
       return new HttpError(400, 'Calendar error: failed to resolve weekday');
     case 'Invalid date':
       return new HttpError(400, 'Invalid date');
+    case 'SWAP_NO_PRESENTER':
+      return new HttpError(400, 'Cannot swap: missing presenter on one of the dates');
     default:
       return null;
   }
+}
+
+function logRequestMeta(req: Request): { requestId?: string } {
+  return req.id ? { requestId: req.id } : {};
 }
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
   try {
     dispatchError(err, _req, res);
   } catch (nested) {
-    logger.error('errorHandler failed', { nested, original: err });
+    logger.error('errorHandler failed', { nested, original: err, ...logRequestMeta(_req) });
     if (!res.headersSent) {
       res.status(500).json({
         message: 'Internal server error',
@@ -171,7 +177,7 @@ function dispatchError(err: unknown, _req: Request, res: Response): void {
     return;
   }
 
-  logger.error('Unhandled error', { err, message: getErrorMessage(err) });
+  logger.error('Unhandled error', { err, message: getErrorMessage(err), ...logRequestMeta(_req) });
 
   if (env.nodeEnv !== 'production') {
     const code =

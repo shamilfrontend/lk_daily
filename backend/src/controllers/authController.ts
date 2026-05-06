@@ -36,5 +36,10 @@ export async function verify(req: Request, res: Response): Promise<void> {
   if (!req.auth) {
     throw new HttpError(401, 'Unauthorized');
   }
-  res.json({ ok: true, login: req.auth.login });
+  res.json({
+    ok: true,
+    login: req.auth.login,
+    role: req.auth.role,
+    teamIds: req.auth.teamIds,
+  });
 }

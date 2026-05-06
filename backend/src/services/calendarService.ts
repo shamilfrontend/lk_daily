@@ -1,6 +1,9 @@
 import { NonWorkingDay } from '../models/NonWorkingDay.js';
 import { HolidayTransfer } from '../models/HolidayTransfer.js';
+import { checkerCache } from './calendarCheckerCache.js';
 import { MOSCOW_TZ, moscowDateStringToUtc, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
+
+export { invalidateCalendarCache } from './calendarCheckerCache.js';
 
 /** Федеральные праздники по ст. 112 ТК РФ (месяц и день в календаре Москвы). */
 const FEDERAL_MD: readonly { month: number; day: number; name: string }[] = [
@@ -66,8 +69,6 @@ type CalendarData = {
   transferFromDates: Set<string>;
   dbFederalTransferDates: Set<string>;
 };
-
-const checkerCache = new Map<string, (dateStr: string) => boolean>();
 
 function cacheKey(year: number, teamRegion?: string): string {
   return `${year}:${teamRegion ?? ''}`;
@@ -147,10 +148,6 @@ export async function getWorkingDayCheckerForYear(
 
   checkerCache.set(key, checker);
   return checker;
-}
-
-export function invalidateCalendarCache(): void {
-  checkerCache.clear();
 }
 
 export async function isWorkingDay(moscowDateStr: string, teamRegion?: string): Promise<boolean> {

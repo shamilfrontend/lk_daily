@@ -1,5 +1,5 @@
 import { addDays } from 'date-fns';
-import type { Types } from 'mongoose';
+import type { ClientSession, Types } from 'mongoose';
 import mongoose from 'mongoose';
 import { PresentationLog } from '../models/PresentationLog.js';
 import { QueueDaySubstitution } from '../models/QueueDaySubstitution.js';
@@ -17,6 +17,7 @@ function toOid(id: string): Types.ObjectId {
 export async function getVacationUserIdSetForMoscowDay(
   userIds: Types.ObjectId[],
   moscowDateStr: string,
+  session?: ClientSession,
 ): Promise<Set<string>> {
   if (userIds.length === 0) {
     return new Set();
@@ -28,12 +29,17 @@ export async function getVacationUserIdSetForMoscowDay(
     userId: { $in: userIds },
     startDate: { $lte: dayEnd },
     endDate: { $gte: dayStart },
-  }).lean();
+  })
+    .session(session ?? null)
+    .lean();
 
   return new Set(vacations.map((v) => v.userId.toString()));
 }
 
-export async function getMaternityUserIdSet(userIds: Types.ObjectId[]): Promise<Set<string>> {
+export async function getMaternityUserIdSet(
+  userIds: Types.ObjectId[],
+  session?: ClientSession,
+): Promise<Set<string>> {
   if (userIds.length === 0) {
     return new Set();
   }
@@ -41,6 +47,7 @@ export async function getMaternityUserIdSet(userIds: Types.ObjectId[]): Promise<
     _id: { $in: userIds },
     onMaternityLeave: true,
   })
+    .session(session ?? null)
     .select('_id')
     .lean();
   return new Set(rows.map((r) => r._id.toString()));
@@ -166,15 +173,96 @@ export async function getQueueState(teamId: string) {
   return { userIds: queueOrder.userIds.map((id) => id.toString()) };
 }
 
-export async function assertNoLogForTeamDay(teamId: string, moscowDateStr: string): Promise<void> {
+export async function assertNoLogForTeamDay(
+  teamId: string,
+  moscowDateStr: string,
+  session?: ClientSession,
+): Promise<void> {
   const dayStart = moscowDateStringToUtc(moscowDateStr);
   const dayEndExclusive = moscowDateStringToUtc(nextMoscowDateString(moscowDateStr));
   const exists = await PresentationLog.exists({
     teamId: toOid(teamId),
     date: { $gte: dayStart, $lt: dayEndExclusive },
-  });
+  }).session(session ?? null);
   if (exists) {
     throw new Error('ALREADY_RECORDED_TODAY');
+  }
+}
+
+export async function getQueueInsightsForToday(
+  teamId: string,
+  when: Date = new Date(),
+): Promise<{ vacationUserIds: string[]; maternityUserIds: string[] }> {
+  const team = await Team.findById(teamId).lean();
+  if (!team) {
+    throw new Error('TEAM_NOT_FOUND');
+  }
+  const queueOrder = await QueueOrder.findOne({ teamId: toOid(teamId) }).lean();
+  if (!queueOrder || queueOrder.userIds.length === 0) {
+    return { vacationUserIds: [], maternityUserIds: [] };
+  }
+  const users = await User.find({
+    _id: { $in: queueOrder.userIds },
+    teamId: team._id,
+    isActive: true,
+  }).lean();
+  const activeIdSet = new Set(users.map((u) => u._id.toString()));
+  const orderedActive = queueOrder.userIds.filter((id) => activeIdSet.has(id.toString()));
+  const moscowDateStr = getMoscowDateString(when);
+  const vacationSet = await getVacationUserIdSetForMoscowDay(orderedActive, moscowDateStr);
+  const maternitySet = await getMaternityUserIdSet(orderedActive);
+  return {
+    vacationUserIds: [...vacationSet],
+    maternityUserIds: [...maternitySet],
+  };
+}
+
+/** Одна строка прогноза для календарной даты Москвы (рабочий день или null presenter). */
+export async function getPresenterRowForMoscowDate(
+  teamId: string,
+  moscowDateStr: string,
+): Promise<UpcomingRow | null> {
+  const when = moscowDateStringToUtc(moscowDateStr);
+  const rows = await getUpcomingPresenters(teamId, 400, when);
+  return rows.find((r) => r.moscowDate === moscowDateStr) ?? null;
+}
+
+/** Поменять подмены между двумя датами: на каждой дате показывается докладчик с другой даты. */
+export async function swapSubstitutionDays(
+  teamId: string,
+  moscowDateA: string,
+  moscowDateB: string,
+): Promise<void> {
+  if (moscowDateA === moscowDateB) {
+    return;
+  }
+  const rowA = await getPresenterRowForMoscowDate(teamId, moscowDateA);
+  const rowB = await getPresenterRowForMoscowDate(teamId, moscowDateB);
+  const presA = rowA?.presenter ?? null;
+  const presB = rowB?.presenter ?? null;
+  if (!presA || !presB) {
+    throw new Error('SWAP_NO_PRESENTER');
+  }
+  if (presA._id === presB._id) {
+    return;
+  }
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      const tid = toOid(teamId);
+      await QueueDaySubstitution.findOneAndUpdate(
+        { teamId: tid, moscowDate: moscowDateA },
+        { $set: { substituteUserId: new mongoose.Types.ObjectId(presB._id) } },
+        { upsert: true, new: true, setDefaultsOnInsert: true, session },
+      );
+      await QueueDaySubstitution.findOneAndUpdate(
+        { teamId: tid, moscowDate: moscowDateB },
+        { $set: { substituteUserId: new mongoose.Types.ObjectId(presA._id) } },
+        { upsert: true, new: true, setDefaultsOnInsert: true, session },
+      );
+    });
+  } finally {
+    await session.endSession();
   }
 }
 
@@ -182,41 +270,98 @@ export async function recordPresentation(
   teamId: string,
   status: 'presented' | 'skipped',
   when: Date = new Date(),
+  options?: { rotateQueue?: boolean },
 ): Promise<{ newUserIds: string[] }> {
-  const team = await Team.findById(teamId).lean();
-  if (!team) {
-    throw new Error('TEAM_NOT_FOUND');
+  const rotateQueue = options?.rotateQueue !== false;
+  const session = await mongoose.startSession();
+  try {
+    let newOrderResult: string[] = [];
+    await session.withTransaction(async () => {
+      const team = await Team.findById(teamId).session(session).lean();
+      if (!team) {
+        throw new Error('TEAM_NOT_FOUND');
+      }
+      const moscowDateStr = getMoscowDateString(when);
+      const working = await isWorkingDay(moscowDateStr, team.region);
+      if (!working) {
+        throw new Error('NON_WORKING_DAY');
+      }
+
+      await assertNoLogForTeamDay(teamId, moscowDateStr, session);
+
+      const queueOrder = await QueueOrder.findOne({ teamId: toOid(teamId) }).session(session);
+      if (!queueOrder || queueOrder.userIds.length === 0) {
+        throw new Error('NO_QUEUE');
+      }
+
+      const users = await User.find({
+        _id: { $in: queueOrder.userIds },
+        teamId: team._id,
+        isActive: true,
+      })
+        .session(session)
+        .lean();
+      const userById = new Map(users.map((u) => [u._id.toString(), u]));
+      const orderedActive = queueOrder.userIds.filter((id) => userById.has(id.toString()));
+      if (orderedActive.length === 0) {
+        throw new Error('NO_PRESENTER');
+      }
+
+      const vacationSet = await getVacationUserIdSetForMoscowDay(orderedActive, moscowDateStr, session);
+      const maternitySet = await getMaternityUserIdSet(orderedActive, session);
+      const unavailable = new Set<string>([...vacationSet, ...maternitySet]);
+      const canonicalPresenterId = await findFirstPresenterId(orderedActive, unavailable);
+      if (!canonicalPresenterId) {
+        throw new Error('NO_PRESENTER');
+      }
+
+      let presentedUserId: Types.ObjectId = canonicalPresenterId;
+      const substitutionDoc = await QueueDaySubstitution.findOne({
+        teamId: team._id,
+        moscowDate: moscowDateStr,
+      })
+        .session(session)
+        .lean();
+      if (substitutionDoc) {
+        const substitutionUser = await User.findOne({
+          _id: substitutionDoc.substituteUserId,
+          teamId: team._id,
+          isActive: true,
+        })
+          .session(session)
+          .lean();
+        if (substitutionUser) {
+          presentedUserId = substitutionUser._id;
+        }
+      }
+
+      const newOrder = rotateQueue
+        ? rotatePresenter(queueOrder.userIds, canonicalPresenterId)
+        : [...queueOrder.userIds];
+      if (rotateQueue) {
+        queueOrder.userIds = newOrder;
+        await queueOrder.save({ session });
+      }
+
+      await PresentationLog.create(
+        [
+          {
+            teamId: toOid(teamId),
+            date: moscowDateStringToUtc(moscowDateStr),
+            userId: presentedUserId,
+            status,
+            rotationSkipped: !rotateQueue,
+          },
+        ],
+        { session },
+      );
+
+      newOrderResult = newOrder.map((id) => id.toString());
+    });
+    return { newUserIds: newOrderResult };
+  } finally {
+    await session.endSession();
   }
-  const moscowDateStr = getMoscowDateString(when);
-  const working = await isWorkingDay(moscowDateStr, team.region);
-  if (!working) {
-    throw new Error('NON_WORKING_DAY');
-  }
-
-  await assertNoLogForTeamDay(teamId, moscowDateStr);
-
-  const current = await getCurrentPresenter(teamId, when);
-  if (current.kind !== 'ok') {
-    throw new Error('NO_PRESENTER');
-  }
-
-  const queueOrder = await QueueOrder.findOne({ teamId: toOid(teamId) });
-  if (!queueOrder) {
-    throw new Error('NO_QUEUE');
-  }
-
-  const newOrder = rotatePresenter(queueOrder.userIds, current.rotationUserId);
-  queueOrder.userIds = newOrder;
-  await queueOrder.save();
-
-  await PresentationLog.create({
-    teamId: toOid(teamId),
-    date: moscowDateStringToUtc(moscowDateStr),
-    userId: current.userId,
-    status,
-  });
-
-  return { newUserIds: newOrder.map((id) => id.toString()) };
 }
 
 export type UpcomingRow = {

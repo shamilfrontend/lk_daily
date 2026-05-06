@@ -51,6 +51,27 @@ export type CurrentPresenterResult =
       substitution?: { canonicalUserId: string; canonicalFullName: string };
     };
 
+export interface QueueInsightsToday {
+  vacationUserIds: string[];
+  maternityUserIds: string[];
+}
+
+export type AdminRole = 'super' | 'team-lead';
+
+export interface TeamStatsResponse {
+  teamId: string;
+  from: string | null;
+  to: string | null;
+  totals: { presented: number; skipped: number; records: number };
+  users: {
+    userId: string;
+    fullName: string;
+    presented: number;
+    skipped: number;
+    lastMoscowDate: string | null;
+  }[];
+}
+
 export interface UpcomingRow {
   moscowDate: string;
   presenter: { _id: string; fullName: string } | null;

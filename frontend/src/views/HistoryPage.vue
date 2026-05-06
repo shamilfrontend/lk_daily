@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { api } from '@/api/client';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -14,10 +14,18 @@ const from = ref('');
 const to = ref('');
 const status = ref<'presented' | 'skipped' | 'no_available' | ''>('');
 const rows = ref<HistoryRow[]>([]);
+const total = ref(0);
+const page = ref(1);
+const limit = 50;
 const loading = ref(false);
+const loadingMore = ref(false);
 const error = ref<string | null>(null);
 
-const resultCount = computed(() => rows.value.length);
+let filterDebounceTimer: ReturnType<typeof setTimeout> | undefined;
+
+const resultCount = computed(() => total.value);
+const shownCount = computed(() => rows.value.length);
+const hasMore = computed(() => shownCount.value < total.value);
 
 function statusLabel(value: HistoryRow['status']): string {
   if (value === 'presented') return 'Выступил';
@@ -45,24 +53,44 @@ function userName(row: HistoryRow): string {
   return String(user);
 }
 
-async function load(): Promise<void> {
-  loading.value = true;
+async function load(reset = true): Promise<void> {
+  if (reset) {
+    loading.value = true;
+    page.value = 1;
+    rows.value = [];
+  } else {
+    loadingMore.value = true;
+  }
   error.value = null;
   try {
-    const { data } = await api.get<HistoryRow[]>('/history', {
-      params: {
-        teamId: filterTeamId.value || undefined,
-        from: from.value || undefined,
-        to: to.value || undefined,
-        status: status.value || undefined,
+    const nextPage = reset ? 1 : page.value + 1;
+    const { data } = await api.get<{ rows: HistoryRow[]; total: number; page: number; limit: number }>(
+      '/history',
+      {
+        params: {
+          teamId: filterTeamId.value || undefined,
+          from: from.value || undefined,
+          to: to.value || undefined,
+          status: status.value || undefined,
+          page: nextPage,
+          limit,
+        },
       },
-    });
-    rows.value = data;
+    );
+    total.value = data.total;
+    page.value = data.page;
+    rows.value = reset ? data.rows : [...rows.value, ...data.rows];
   } catch (e) {
     error.value = getApiErrorMessage(e, 'Не удалось загрузить историю');
   } finally {
     loading.value = false;
+    loadingMore.value = false;
   }
+}
+
+async function loadMore(): Promise<void> {
+  if (!hasMore.value || loadingMore.value || loading.value) return;
+  await load(false);
 }
 
 onMounted(async () => {
@@ -75,7 +103,19 @@ onMounted(async () => {
 });
 
 watch([filterTeamId, from, to, status], () => {
-  void load();
+  if (filterDebounceTimer !== undefined) {
+    clearTimeout(filterDebounceTimer);
+  }
+  filterDebounceTimer = window.setTimeout(() => {
+    filterDebounceTimer = undefined;
+    void load(true);
+  }, 400);
+});
+
+onBeforeUnmount(() => {
+  if (filterDebounceTimer !== undefined) {
+    clearTimeout(filterDebounceTimer);
+  }
 });
 </script>
 
@@ -122,7 +162,9 @@ watch([filterTeamId, from, to, status], () => {
     <div class="card">
       <div class="history-head">
         <h2 class="history-head__title">Записи</h2>
-        <p class="history-head__subtitle">Найдено записей: {{ resultCount }}</p>
+        <p class="history-head__subtitle">
+          Всего по фильтрам: {{ resultCount }}. На экране: {{ shownCount }}.
+        </p>
       </div>
 
       <AppState
@@ -162,12 +204,23 @@ watch([filterTeamId, from, to, status], () => {
             </tr>
           </tbody>
         </table>
+        <div v-if="hasMore" class="history-more">
+          <button type="button" class="btn" :disabled="loadingMore" @click="loadMore">
+            {{ loadingMore ? 'Загрузка…' : 'Загрузить ещё' }}
+          </button>
+        </div>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped lang="scss">
+.history-more {
+  margin-top: var(--space-3);
+  display: flex;
+  justify-content: center;
+}
+
 .history-head {
   margin-bottom: var(--space-3);
 }

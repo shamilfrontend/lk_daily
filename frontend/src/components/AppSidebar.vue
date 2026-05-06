@@ -45,10 +45,18 @@ function logout(): void {
 
       <template v-if="auth.isAdmin">
         <p class="sidebar__section">Администрирование</p>
-        <RouterLink class="sidebar__link" to="/admin/teams" @click="emit('navigate')">Управление командами</RouterLink>
+        <RouterLink
+          v-if="auth.isSuperAdmin"
+          class="sidebar__link"
+          to="/admin/teams"
+          @click="emit('navigate')"
+        >
+          Управление командами
+        </RouterLink>
         <RouterLink class="sidebar__link" to="/admin/users" @click="emit('navigate')">Участники</RouterLink>
         <RouterLink class="sidebar__link" to="/admin/vacations" @click="emit('navigate')">Отпуска</RouterLink>
         <RouterLink class="sidebar__link" to="/admin/queue" @click="emit('navigate')">Настройка очереди</RouterLink>
+        <RouterLink class="sidebar__link" to="/admin/stats" @click="emit('navigate')">Статистика</RouterLink>
       </template>
     </nav>
 

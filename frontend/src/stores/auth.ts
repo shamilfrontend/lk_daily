@@ -8,9 +8,12 @@ const TOKEN_KEY = 'lk_daily_token';
 export const useAuthStore = defineStore('auth', () => {
   const token = ref<string | null>(localStorage.getItem(TOKEN_KEY));
   const loginName = ref<string | null>(null);
+  const role = ref<'super' | 'team-lead' | null>(null);
+  const teamIds = ref<string[]>([]);
   const verifyError = ref<string | null>(null);
 
   const isAdmin = computed(() => Boolean(token.value));
+  const isSuperAdmin = computed(() => role.value === 'super');
 
   function setToken(t: string | null): void {
     token.value = t;
@@ -26,11 +29,16 @@ export const useAuthStore = defineStore('auth', () => {
     setToken(data.token);
     loginName.value = loginStr;
     verifyError.value = null;
+    role.value = null;
+    teamIds.value = [];
+    await verify();
   }
 
   function logout(): void {
     setToken(null);
     loginName.value = null;
+    role.value = null;
+    teamIds.value = [];
   }
 
   async function verify(): Promise<void> {
@@ -38,9 +46,16 @@ export const useAuthStore = defineStore('auth', () => {
       return;
     }
     try {
-      const { data } = await api.get<{ ok: boolean; login: string }>('/auth/verify');
+      const { data } = await api.get<{
+        ok: boolean;
+        login: string;
+        role: 'super' | 'team-lead';
+        teamIds: string[];
+      }>('/auth/verify');
       if (data.ok) {
         loginName.value = data.login;
+        role.value = data.role ?? 'super';
+        teamIds.value = Array.isArray(data.teamIds) ? data.teamIds : [];
         verifyError.value = null;
       }
     } catch (e) {
@@ -49,5 +64,5 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { token, loginName, verifyError, isAdmin, login, logout, verify };
+  return { token, loginName, role, teamIds, verifyError, isAdmin, isSuperAdmin, login, logout, verify };
 });

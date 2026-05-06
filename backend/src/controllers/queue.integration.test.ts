@@ -1,7 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Express } from 'express';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import { Team } from '../models/Team.js';
@@ -13,7 +13,7 @@ import * as dateHelpers from '../utils/dateHelpers.js';
 import { invalidateCalendarCache } from '../services/calendarService.js';
 
 describe('queue API (integration)', () => {
-  let mongoServer: MongoMemoryServer;
+  let mongoReplSet: MongoMemoryReplSet;
   let app: Express;
   let teamId: string;
   let userA: string;
@@ -21,9 +21,11 @@ describe('queue API (integration)', () => {
   let token: string;
 
   beforeAll(async () => {
-    mongoServer = await MongoMemoryServer.create();
-    process.env.MONGO_URI = mongoServer.getUri();
-    process.env.JWT_SECRET = 'integration-test-jwt';
+    mongoReplSet = await MongoMemoryReplSet.create({
+      replSet: { count: 1, dbName: 'lk-daily-test' },
+    });
+    process.env.MONGO_URI = mongoReplSet.getUri();
+    process.env.JWT_SECRET = 'integration-test-jwt-secret-min-32-chars-x';
     process.env.ADMIN_LOGIN = 'adm';
     process.env.ADMIN_PASSWORD = 'pwd12345';
 
@@ -67,8 +69,8 @@ describe('queue API (integration)', () => {
 
   afterAll(async () => {
     await mongoose.disconnect();
-    if (mongoServer) {
-      await mongoServer.stop();
+    if (mongoReplSet) {
+      await mongoReplSet.stop();
     }
   });
 
@@ -77,6 +79,7 @@ describe('queue API (integration)', () => {
     expect(res.status).toBe(200);
     expect(res.body.result.kind).toBe('ok');
     expect(res.body.result.user._id).toBe(userA);
+    expect(res.body.insights).toEqual({ vacationUserIds: [], maternityUserIds: [] });
   });
 
   it('POST /queue/present rotates queue', async () => {
@@ -109,5 +112,56 @@ describe('queue API (integration)', () => {
       teamId: new mongoose.Types.ObjectId(teamId),
     });
     expect(log?.status).toBe('skipped');
+  });
+
+  it('GET /queue/substitutions validates from/to date format', async () => {
+    const res = await request(app).get('/api/queue/substitutions').query({
+      teamId,
+      from: '2026/04/15',
+    });
+    expect(res.status).toBe(400);
+    expect(String(res.body?.message ?? '')).toContain('Invalid from date');
+  });
+
+  it('POST /queue/substitutions creates substitution; DELETE removes it', async () => {
+    const moscowDate = '2026-04-20';
+
+    const createRes = await request(app)
+      .post('/api/queue/substitutions')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        teamId,
+        moscowDate,
+        substituteUserId: userB,
+      });
+
+    expect(createRes.status).toBe(200);
+    expect(createRes.body.ok).toBe(true);
+    expect(createRes.body.substituteUserId).toBe(userB);
+
+    const listRes = await request(app).get('/api/queue/substitutions').query({ teamId });
+    expect(listRes.status).toBe(200);
+    expect(Array.isArray(listRes.body.rows)).toBe(true);
+    expect(listRes.body.rows.some((r: { moscowDate: string }) => r.moscowDate === moscowDate)).toBe(true);
+
+    const delRes = await request(app)
+      .delete('/api/queue/substitutions')
+      .query({ teamId, moscowDate })
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(delRes.status).toBe(200);
+    expect(delRes.body.deleted).toBe(true);
+
+    const listAfter = await request(app).get('/api/queue/substitutions').query({ teamId });
+    expect(listAfter.body.rows.some((r: { moscowDate: string }) => r.moscowDate === moscowDate)).toBe(false);
+  });
+
+  it('POST /queue/substitutions without JWT returns 401', async () => {
+    const res = await request(app).post('/api/queue/substitutions').send({
+      teamId,
+      moscowDate: '2026-04-21',
+      substituteUserId: userB,
+    });
+    expect(res.status).toBe(401);
   });
 });

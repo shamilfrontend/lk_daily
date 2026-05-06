@@ -7,7 +7,6 @@ import { useAuthStore } from '@/stores/auth';
 import { useQueueStore } from '@/stores/queue';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
-import { useVacationsStore } from '@/stores/vacations';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { moscowTodayString, weekdayRu } from '@/utils/dates';
 
@@ -19,12 +18,12 @@ const auth = useAuthStore();
 const queue = useQueueStore();
 const teams = useTeamsStore();
 const users = useUsersStore();
-const vacations = useVacationsStore();
 
 const actionError = ref<string | null>(null);
 const pageError = ref<string | null>(null);
 const exportError = ref<string | null>(null);
 const linkCopied = ref(false);
+const skipWithoutRotation = ref(false);
 
 const today = moscowTodayString();
 
@@ -38,27 +37,9 @@ const userMap = computed(() => {
   return m;
 });
 
-const onVacationToday = computed(() => {
-  const set = new Set<string>();
-  for (const v of vacations.vacations) {
-    const s = v.startDate.slice(0, 10);
-    const e = v.endDate.slice(0, 10);
-    if (s <= today && e >= today) {
-      set.add(v.userId);
-    }
-  }
-  return set;
-});
+const onVacationToday = computed(() => new Set(queue.insightsToday?.vacationUserIds ?? []));
 
-const onMaternityLeaveIds = computed(() => {
-  const set = new Set<string>();
-  for (const u of users.users) {
-    if (u.onMaternityLeave) {
-      set.add(u._id);
-    }
-  }
-  return set;
-});
+const onMaternityLeaveIds = computed(() => new Set(queue.insightsToday?.maternityUserIds ?? []));
 
 const headline = computed(() => {
   const r = queue.current?.result;
@@ -97,17 +78,10 @@ async function refresh(): Promise<void> {
   const tid = app.selectedTeamId;
   if (!tid) return;
   try {
-    await Promise.all([
-      queue.loadAll(tid, UPCOMING_DAYS),
-      users.fetchUsers(tid, false),
-      vacations.fetchVacations({ teamId: tid }),
-    ]);
+    await Promise.all([queue.loadAll(tid, UPCOMING_DAYS), users.fetchUsers(tid, false)]);
   } catch (e) {
     pageError.value =
-      queue.error ??
-      users.error ??
-      vacations.error ??
-      getApiErrorMessage(e, 'Не удалось обновить главную страницу');
+      queue.error ?? users.error ?? getApiErrorMessage(e, 'Не удалось обновить главную страницу');
   }
 }
 
@@ -133,7 +107,7 @@ async function onSkip(): Promise<void> {
   const tid = app.selectedTeamId;
   if (!tid) return;
   try {
-    await queue.skip(tid);
+    await queue.skip(tid, { rotate: !skipWithoutRotation.value });
   } catch (e: unknown) {
     actionError.value = getApiErrorMessage(e, 'Не удалось пропустить участника');
   }
@@ -286,11 +260,17 @@ async function copyTeamDeepLink(): Promise<void> {
           <p v-if="substitutionHint" class="hero-card__reason hero-card__reason--muted">{{ substitutionHint }}</p>
           <p class="hero-card__hint">Дата: {{ today }} · Прогнозов на ближайшие дни: {{ nextPresenterCount }}</p>
           <p v-if="actionError" class="error">{{ actionError }}</p>
-          <div v-if="auth.isAdmin" class="actions-row">
-            <button type="button" class="btn btn--primary" :disabled="!canAct || queue.loading" @click="onPresent">
-              Выступил
-            </button>
-            <button type="button" class="btn" :disabled="!canAct || queue.loading" @click="onSkip">Пропустить</button>
+          <div v-if="auth.isAdmin" class="actions-column">
+            <label class="skip-rotate-label">
+              <input v-model="skipWithoutRotation" type="checkbox" />
+              Пропуск без сдвига очереди
+            </label>
+            <div class="actions-row">
+              <button type="button" class="btn btn--primary" :disabled="!canAct || queue.loading" @click="onPresent">
+                Выступил
+              </button>
+              <button type="button" class="btn" :disabled="!canAct || queue.loading" @click="onSkip">Пропустить</button>
+            </div>
           </div>
           <AppState
             v-else
@@ -483,6 +463,20 @@ async function copyTeamDeepLink(): Promise<void> {
   flex-wrap: wrap;
   gap: 0.5rem;
   justify-content: flex-end;
+}
+
+.actions-column {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.skip-rotate-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  cursor: pointer;
 }
 
 .queue {

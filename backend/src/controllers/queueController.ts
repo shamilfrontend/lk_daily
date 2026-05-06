@@ -4,8 +4,10 @@ import mongoose from 'mongoose';
 
 import { HttpError, isMongoDuplicateKeyError } from '../middlewares/errorHandler.js';
 import { User } from '../models/User.js';
+import { assertTeamAccess } from '../utils/authz.js';
 import {
   getCurrentPresenter,
+  getQueueInsightsForToday,
   getQueueState,
   getUpcomingPresenters,
   recordPresentation,
@@ -17,6 +19,10 @@ import { buildIcsCalendar, type IcsEventInput } from '../utils/ics.js';
 
 const orderBody = Joi.object({
   userIds: Joi.array().items(Joi.string().required()).required(),
+});
+
+const skipBody = Joi.object({
+  rotate: Joi.boolean().default(true),
 });
 
 function mapPresenterError(code: string): HttpError {
@@ -31,6 +37,8 @@ function mapPresenterError(code: string): HttpError {
       return new HttpError(400, 'No presenter available');
     case 'NO_QUEUE':
       return new HttpError(400, 'Queue is empty');
+    case 'SWAP_NO_PRESENTER':
+      return new HttpError(400, 'Cannot swap: missing presenter on one of the dates');
     default:
       return new HttpError(500, code);
   }
@@ -56,8 +64,11 @@ export async function getCurrent(req: Request, res: Response): Promise<void> {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
   try {
-    const result = await getCurrentPresenter(teamId);
-    res.json({ teamId, result });
+    const [result, insights] = await Promise.all([
+      getCurrentPresenter(teamId),
+      getQueueInsightsForToday(teamId),
+    ]);
+    res.json({ teamId, result, insights });
   } catch (e) {
     if (e instanceof Error && e.message === 'TEAM_NOT_FOUND') {
       throw new HttpError(404, 'Team not found');
@@ -179,6 +190,7 @@ export async function present(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+  assertTeamAccess(req.auth, teamId);
   try {
     const out = await recordPresentation(teamId, 'presented');
     res.json(out);
@@ -192,8 +204,18 @@ export async function skip(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+  assertTeamAccess(req.auth, teamId);
+  const { error, value } = skipBody.validate(req.body ?? {}, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
+  if (error) {
+    throw new HttpError(400, error.message);
+  }
   try {
-    const out = await recordPresentation(teamId, 'skipped');
+    const out = await recordPresentation(teamId, 'skipped', new Date(), {
+      rotateQueue: value.rotate !== false,
+    });
     res.json(out);
   } catch (e) {
     throwPresentationHttpError(e);
@@ -205,6 +227,7 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+  assertTeamAccess(req.auth, teamId);
   const { error, value } = orderBody.validate(req.body);
   if (error) {
     throw new HttpError(400, error.message);
@@ -240,6 +263,7 @@ export async function sortOrderAlphabetically(req: Request, res: Response): Prom
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+  assertTeamAccess(req.auth, teamId);
   const userIds = await sortQueueAlphabetically(new mongoose.Types.ObjectId(teamId));
   res.json({ ok: true, userIds });
 }

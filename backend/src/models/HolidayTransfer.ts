@@ -1,4 +1,5 @@
 import mongoose, { Schema, type Document, type Model } from 'mongoose';
+import { invalidateCalendarCache } from '../services/calendarCheckerCache.js';
 
 export interface IHolidayTransfer extends Document {
   fromDate: Date;
@@ -20,6 +21,23 @@ const holidayTransferSchema = new Schema<IHolidayTransfer>(
 );
 
 holidayTransferSchema.index({ fromDate: 1, toDate: 1 }, { unique: true });
+
+holidayTransferSchema.post('save', invalidateCalendarCache);
+holidayTransferSchema.post('insertMany', invalidateCalendarCache);
+holidayTransferSchema.post(
+  [
+    'deleteOne',
+    'deleteMany',
+    'updateOne',
+    'updateMany',
+    'findOneAndDelete',
+    'findOneAndUpdate',
+    'findOneAndReplace',
+    'replaceOne',
+  ],
+  { document: false, query: true },
+  invalidateCalendarCache,
+);
 
 export const HolidayTransfer: Model<IHolidayTransfer> = mongoose.model<IHolidayTransfer>(
   'HolidayTransfer',

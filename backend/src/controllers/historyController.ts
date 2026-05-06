@@ -10,6 +10,8 @@ type HistoryQuery = {
   from?: string;
   to?: string;
   status?: string;
+  page?: number;
+  limit?: number;
 };
 
 const historyQuerySchema = Joi.object({
@@ -29,6 +31,8 @@ const historyQuerySchema = Joi.object({
   from: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
   to: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
   status: Joi.string().valid('presented', 'skipped', 'no_available').optional().allow(''),
+  page: Joi.number().integer().min(1).optional(),
+  limit: Joi.number().integer().min(1).max(100).optional(),
 });
 
 function buildHistoryFilter(query: HistoryQuery): Record<string, unknown> {
@@ -75,22 +79,34 @@ function csvEscape(value: string): string {
 }
 
 export async function listHistory(req: Request, res: Response): Promise<void> {
-  const filter = buildHistoryFilter(validateHistoryQuery(req.query));
+  const query = validateHistoryQuery(req.query);
+  const filter = buildHistoryFilter(query);
+  const page = query.page ?? 1;
+  const limit = query.limit ?? 50;
+  const skip = (page - 1) * limit;
 
-  const rows = await PresentationLog.find(filter)
-    .sort({ date: -1, createdAt: -1 })
-    .populate('teamId', 'name')
-    .populate('userId', 'fullName')
-    .lean();
+  const [total, rows] = await Promise.all([
+    PresentationLog.countDocuments(filter),
+    PresentationLog.find(filter)
+      .sort({ date: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('teamId', 'name')
+      .populate('userId', 'fullName')
+      .lean(),
+  ]);
 
-  res.json(rows);
+  res.json({ rows, total, page, limit });
 }
+
+const MAX_HISTORY_CSV_ROWS = 5000;
 
 export async function exportHistoryCsv(req: Request, res: Response): Promise<void> {
   const filter = buildHistoryFilter(validateHistoryQuery(req.query));
 
   const rows = await PresentationLog.find(filter)
     .sort({ date: -1, createdAt: -1 })
+    .limit(MAX_HISTORY_CSV_ROWS)
     .populate('teamId', 'name')
     .populate('userId', 'fullName')
     .lean();

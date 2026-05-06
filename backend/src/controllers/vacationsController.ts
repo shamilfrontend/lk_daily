@@ -5,6 +5,7 @@ import { HttpError } from '../middlewares/errorHandler.js';
 import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';
 import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
+import { allowedTeamIdSet, assertTeamAccess } from '../utils/authz.js';
 
 const createBody = Joi.object({
   userId: Joi.string().required(),
@@ -19,6 +20,15 @@ const updateBody = Joi.object({
 
 export async function listVacations(req: Request, res: Response): Promise<void> {
   const { userId, teamId, fromDate, toDate } = req.query as Record<string, string | undefined>;
+  const allowed = allowedTeamIdSet(req.auth);
+  if (allowed) {
+    if (!teamId || !mongoose.isValidObjectId(teamId)) {
+      throw new HttpError(400, 'teamId is required');
+    }
+    if (!allowed.has(teamId)) {
+      throw new HttpError(403, 'Forbidden for this team');
+    }
+  }
   const filter: Record<string, unknown> = {};
 
   if (userId) {
@@ -60,6 +70,7 @@ export async function createVacation(req: Request, res: Response): Promise<void>
   if (!user) {
     throw new HttpError(404, 'User not found');
   }
+  assertTeamAccess(req.auth, user.teamId.toString());
   const startDate = parseMoscowDayInput(value.startDate);
   const endDate = parseMoscowDayInput(value.endDate);
   if (utcDateToMoscowDateString(startDate) > utcDateToMoscowDateString(endDate)) {
@@ -81,6 +92,11 @@ export async function updateVacation(req: Request, res: Response): Promise<void>
   if (!v) {
     throw new HttpError(404, 'Vacation not found');
   }
+  const vacUser = await User.findById(v.userId).select('teamId').lean();
+  if (!vacUser) {
+    throw new HttpError(404, 'User not found');
+  }
+  assertTeamAccess(req.auth, vacUser.teamId.toString());
   const start = value.startDate ? parseMoscowDayInput(value.startDate) : v.startDate;
   const end = value.endDate ? parseMoscowDayInput(value.endDate) : v.endDate;
   if (utcDateToMoscowDateString(start) > utcDateToMoscowDateString(end)) {
@@ -96,9 +112,15 @@ export async function deleteVacation(req: Request, res: Response): Promise<void>
   if (!mongoose.isValidObjectId(req.params.id)) {
     throw new HttpError(400, 'Invalid id');
   }
-  const v = await Vacation.findByIdAndDelete(req.params.id);
+  const v = await Vacation.findById(req.params.id);
   if (!v) {
     throw new HttpError(404, 'Vacation not found');
   }
+  const vacUser = await User.findById(v.userId).select('teamId').lean();
+  if (!vacUser) {
+    throw new HttpError(404, 'User not found');
+  }
+  assertTeamAccess(req.auth, vacUser.teamId.toString());
+  await Vacation.deleteOne({ _id: v._id });
   res.status(204).send();
 }

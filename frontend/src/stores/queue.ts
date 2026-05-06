@@ -1,11 +1,17 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { api } from '@/api/client';
-import type { CurrentPresenterResult, QueueSubstitutionRow, UpcomingRow } from '@/types/api';
+import type {
+  CurrentPresenterResult,
+  QueueInsightsToday,
+  QueueSubstitutionRow,
+  UpcomingRow,
+} from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 
 export const useQueueStore = defineStore('queue', () => {
   const current = ref<{ teamId: string; result: CurrentPresenterResult } | null>(null);
+  const insightsToday = ref<QueueInsightsToday | null>(null);
   const order = ref<string[]>([]);
   const upcoming = ref<UpcomingRow[]>([]);
   const substitutions = ref<QueueSubstitutionRow[]>([]);
@@ -17,14 +23,18 @@ export const useQueueStore = defineStore('queue', () => {
     error.value = null;
     try {
       const [c, o, u, s] = await Promise.all([
-        api.get<{ teamId: string; result: CurrentPresenterResult }>('/queue/current', { params: { teamId } }),
+        api.get<{ teamId: string; result: CurrentPresenterResult; insights: QueueInsightsToday }>(
+          '/queue/current',
+          { params: { teamId } },
+        ),
         api.get<{ teamId: string; userIds: string[] }>('/queue/order', { params: { teamId } }),
         api.get<{ teamId: string; days: number; rows: UpcomingRow[] }>('/queue/upcoming', {
           params: { teamId, days: upcomingDays },
         }),
         api.get<{ teamId: string; rows: QueueSubstitutionRow[] }>('/queue/substitutions', { params: { teamId } }),
       ]);
-      current.value = c.data;
+      current.value = { teamId: c.data.teamId, result: c.data.result };
+      insightsToday.value = c.data.insights ?? { vacationUserIds: [], maternityUserIds: [] };
       order.value = o.data.userIds;
       upcoming.value = u.data.rows;
       substitutions.value = s.data.rows;
@@ -49,10 +59,10 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  async function skip(teamId: string): Promise<void> {
+  async function skip(teamId: string, options?: { rotate?: boolean }): Promise<void> {
     loading.value = true;
     try {
-      await api.post('/queue/skip', {}, { params: { teamId } });
+      await api.post('/queue/skip', { rotate: options?.rotate !== false }, { params: { teamId } });
       await loadAll(teamId);
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось пропустить участника');
@@ -95,6 +105,11 @@ export const useQueueStore = defineStore('queue', () => {
     await fetchSubstitutions(teamId);
   }
 
+  async function swapSubstitutionDays(teamId: string, moscowDateA: string, moscowDateB: string): Promise<void> {
+    await api.post('/queue/substitutions/swap-days', { teamId, moscowDateA, moscowDateB });
+    await loadAll(teamId);
+  }
+
   async function sortAlphabetical(teamId: string): Promise<void> {
     error.value = null;
     try {
@@ -108,6 +123,7 @@ export const useQueueStore = defineStore('queue', () => {
 
   return {
     current,
+    insightsToday,
     order,
     upcoming,
     substitutions,
@@ -121,5 +137,6 @@ export const useQueueStore = defineStore('queue', () => {
     fetchSubstitutions,
     saveSubstitution,
     deleteSubstitution,
+    swapSubstitutionDays,
   };
 });

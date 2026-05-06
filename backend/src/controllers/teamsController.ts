@@ -6,6 +6,7 @@ import { QueueOrder } from '../models/QueueOrder.js';
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
 import { ensureQueueOrder } from '../services/queueService.js';
+import { allowedTeamIdSet, assertSuperAdmin } from '../utils/authz.js';
 
 const createBody = Joi.object({
   name: Joi.string().trim().required(),
@@ -19,12 +20,22 @@ const updateBody = Joi.object({
   region: Joi.string().allow('', null),
 }).min(1);
 
-export async function listTeams(_req: Request, res: Response): Promise<void> {
-  const teams = await Team.find().sort({ name: 1 }).lean();
+export async function listTeams(req: Request, res: Response): Promise<void> {
+  const allowed = allowedTeamIdSet(req.auth);
+  if (allowed && allowed.size === 0) {
+    res.json([]);
+    return;
+  }
+  const filter =
+    allowed && allowed.size > 0
+      ? { _id: { $in: [...allowed].map((id) => new mongoose.Types.ObjectId(id)) } }
+      : {};
+  const teams = await Team.find(filter).sort({ name: 1 }).lean();
   res.json(teams);
 }
 
 export async function createTeam(req: Request, res: Response): Promise<void> {
+  assertSuperAdmin(req.auth);
   const { error, value } = createBody.validate(req.body);
   if (error) {
     throw new HttpError(400, error.message);
@@ -39,6 +50,7 @@ export async function createTeam(req: Request, res: Response): Promise<void> {
 }
 
 export async function updateTeam(req: Request, res: Response): Promise<void> {
+  assertSuperAdmin(req.auth);
   const { error, value } = updateBody.validate(req.body);
   if (error) {
     throw new HttpError(400, error.message);
@@ -51,6 +63,7 @@ export async function updateTeam(req: Request, res: Response): Promise<void> {
 }
 
 export async function deleteTeam(req: Request, res: Response): Promise<void> {
+  assertSuperAdmin(req.auth);
   const id = req.params.id;
   if (!mongoose.isValidObjectId(id)) {
     throw new HttpError(400, 'Invalid id');

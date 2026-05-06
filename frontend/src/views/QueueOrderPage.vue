@@ -21,6 +21,9 @@ const success = ref<string | null>(null);
 const subDate = ref('');
 const subUserId = ref('');
 const subBusy = ref(false);
+const swapDateA = ref('');
+const swapDateB = ref('');
+const swapBusy = ref(false);
 
 const items = computed({
   get: () => localIds.value.map((id) => ({ id })),
@@ -65,6 +68,8 @@ watch(teamId, async (id) => {
   success.value = null;
   subDate.value = '';
   subUserId.value = '';
+  swapDateA.value = '';
+  swapDateB.value = '';
   try {
     await users.fetchUsers(id, false);
     await queue.loadAll(id, 1);
@@ -115,6 +120,23 @@ async function removeSubstitutionRow(moscowDate: string): Promise<void> {
     error.value = queue.error ?? getApiErrorMessage(e, 'Не удалось удалить подмену');
   } finally {
     subBusy.value = false;
+  }
+}
+
+async function swapSubstitutions(): Promise<void> {
+  if (!teamId.value || !swapDateA.value || !swapDateB.value) return;
+  error.value = null;
+  success.value = null;
+  swapBusy.value = true;
+  try {
+    await queue.swapSubstitutionDays(teamId.value, swapDateA.value, swapDateB.value);
+    success.value = 'Подмены между датами применены';
+    swapDateA.value = '';
+    swapDateB.value = '';
+  } catch (e) {
+    error.value = queue.error ?? getApiErrorMessage(e, 'Не удалось поменять подмены');
+  } finally {
+    swapBusy.value = false;
   }
 }
 
@@ -278,6 +300,32 @@ async function sortAz(): Promise<void> {
           </tbody>
         </table>
       </div>
+
+      <div class="sub-grid swap-grid">
+        <div class="field">
+          <label for="swap-a">Дата A (Москва)</label>
+          <input id="swap-a" v-model="swapDateA" class="input" type="date" :disabled="swapBusy" />
+        </div>
+        <div class="field">
+          <label for="swap-b">Дата B (Москва)</label>
+          <input id="swap-b" v-model="swapDateB" class="input" type="date" :disabled="swapBusy" />
+        </div>
+        <div class="field field--action">
+          <label class="visually-hidden" for="swap-go">Поменять подмены</label>
+          <button
+            id="swap-go"
+            type="button"
+            class="btn"
+            :disabled="swapBusy || !swapDateA || !swapDateB"
+            @click="swapSubstitutions"
+          >
+            Поменять докладчиков между датами
+          </button>
+        </div>
+      </div>
+      <p class="swap-hint">
+        На дате A будет показан докладчик с даты B и наоборот (по прогнозу очереди без учёта уже введённых подмен).
+      </p>
     </div>
   </section>
 </template>
@@ -373,6 +421,17 @@ async function sortAz(): Promise<void> {
   gap: var(--space-3);
   align-items: end;
   margin-bottom: var(--space-3);
+}
+
+.swap-grid {
+  margin-top: var(--space-4);
+  grid-template-columns: minmax(10rem, 14rem) minmax(10rem, 14rem) auto;
+}
+
+.swap-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--muted);
 }
 
 .field--action {
