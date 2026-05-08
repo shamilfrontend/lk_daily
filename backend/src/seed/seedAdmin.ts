@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
+import { pathToFileURL } from 'node:url';
 import { env } from '../config/env.js';
 import { Admin } from '../models/Admin.js';
 import { logger } from '../utils/logger.js';
@@ -28,7 +29,12 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch((err: unknown) => {
-  logger.error('seed:admin failed', { err });
-  process.exit(1);
-});
+const entryPath = process.argv[1];
+const isDirectRun = typeof entryPath === 'string' && import.meta.url === pathToFileURL(entryPath).href;
+
+if (isDirectRun) {
+  void main().catch((err: unknown) => {
+    logger.error('seed:admin failed', { err });
+    process.exit(1);
+  });
+}

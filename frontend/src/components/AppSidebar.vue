@@ -87,12 +87,11 @@ function logout(): void {
   flex-shrink: 0;
   width: var(--sidebar-width);
   min-height: 0;
-  /* Не тянуться на высоту всей страницы справа — иначе «Выйти» уезжает вниз */
   align-self: flex-start;
   position: sticky;
-  top: 0;
-  height: 100dvh;
-  max-height: 100dvh;
+  top: var(--topbar-height);
+  height: calc(100dvh - var(--topbar-height));
+  max-height: calc(100dvh - var(--topbar-height));
   overflow: hidden;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
