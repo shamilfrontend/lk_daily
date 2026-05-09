@@ -11,7 +11,7 @@ const app = useAppStore();
 const nwd = useNonWorkingDaysStore();
 const teams = useTeamsStore();
 
-const yearInput = ref(new Date().getFullYear());
+const currentYear = ref(new Date().getFullYear());
 
 const selectedTeamRegion = computed(() => {
   if (!app.selectedTeamId) return undefined;
@@ -31,7 +31,7 @@ watch(
 
 async function loadYear(): Promise<void> {
   try {
-    await nwd.fetchYear(yearInput.value, app.selectedTeamId ?? undefined);
+    await nwd.fetchYear(currentYear.value, app.selectedTeamId ?? undefined);
   } catch {
     /* handled in store */
   }
@@ -64,34 +64,6 @@ function typeLabel(t: string): string {
           : 'Показываем федеральные, переносные и пользовательские дни. Выбери команду, чтобы увидеть региональные даты.'
       "
     />
-
-    <div class="card">
-      <div class="toolbar">
-        <div class="field field--sm">
-          <label for="y">Год</label>
-          <input
-            id="y"
-            v-model.number="yearInput"
-            class="input"
-            type="number"
-            min="1970"
-            max="3000"
-            :disabled="nwd.loading"
-          />
-        </div>
-        <div class="field field--grow">
-          <label>Контекст команды</label>
-          <div class="state-panel state-panel--compact">
-            <p class="state-panel__title">Регион: {{ selectedTeamRegion ?? 'не выбран' }}</p>
-            <p class="state-panel__description">При смене команды календарь обновляется автоматически.</p>
-          </div>
-        </div>
-        <div class="field">
-          <label>&nbsp;</label>
-          <button type="button" class="btn" :disabled="nwd.loading" @click="loadYear">Показать</button>
-        </div>
-      </div>
-    </div>
 
     <AppState
       v-if="nwd.error"
@@ -143,7 +115,7 @@ function typeLabel(t: string): string {
         <AppState
           v-else-if="!nwd.items.length"
           title="За этот год записей нет"
-          description="Попробуй выбрать другой год или проверить настройки команды."
+          description="Проверь настройки команды или наличие данных в календаре."
           tone="empty"
         />
         <div v-else class="table-wrap">

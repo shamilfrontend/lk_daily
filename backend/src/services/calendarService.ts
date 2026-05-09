@@ -23,6 +23,10 @@ const FEDERAL_MD: readonly { month: number; day: number; name: string }[] = [
   { month: 11, day: 4, name: 'День народного единства' },
 ];
 
+const EXTRA_NON_WORKING_DATES_BY_YEAR: Readonly<Record<number, readonly string[]>> = {
+  2026: ['2026-01-09', '2026-03-09', '2026-05-11', '2026-12-31'],
+};
+
 function parseMoscowDateString(dateStr: string): { y: number; m: number; d: number } {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     throw new Error('Invalid date');
@@ -68,6 +72,7 @@ type CalendarData = {
   transferToDates: Set<string>;
   transferFromDates: Set<string>;
   dbFederalTransferDates: Set<string>;
+  defaultFederalTransferDates: Set<string>;
 };
 
 function cacheKey(year: number, teamRegion?: string): string {
@@ -108,6 +113,7 @@ async function loadCalendarDataForYear(year: number, teamRegion?: string): Promi
     transferToDates: new Set(transfers.map((t) => utcDateToMoscowDateString(t.toDate))),
     transferFromDates: new Set(transfers.map((t) => utcDateToMoscowDateString(t.fromDate))),
     dbFederalTransferDates,
+    defaultFederalTransferDates: new Set(EXTRA_NON_WORKING_DATES_BY_YEAR[year] ?? []),
   };
 }
 
@@ -133,6 +139,9 @@ export async function getWorkingDayCheckerForYear(
       return false;
     }
     if (data.dbFederalTransferDates.has(moscowDateStr)) {
+      return false;
+    }
+    if (data.defaultFederalTransferDates.has(moscowDateStr)) {
       return false;
     }
     if (teamRegion && data.regionalDates.has(moscowDateStr)) {
@@ -173,6 +182,9 @@ export async function explainWhyNonWorking(moscowDateStr: string, teamRegion?: s
   if (data.dbFederalTransferDates.has(moscowDateStr)) {
     return 'Нерабочий день (из календаря переносов)';
   }
+  if (data.defaultFederalTransferDates.has(moscowDateStr)) {
+    return 'Нерабочий день (производственный календарь РФ)';
+  }
   if (teamRegion && data.regionalDates.has(moscowDateStr)) {
     return 'Региональный нерабочий день';
   }
@@ -193,6 +205,10 @@ export function listFederalHolidayStringsForYear(year: number): { date: string; 
   }));
 }
 
+function listDefaultFederalTransferDatesForYear(year: number): string[] {
+  return [...(EXTRA_NON_WORKING_DATES_BY_YEAR[year] ?? [])];
+}
+
 export async function listNonWorkingDaysForYear(
   year: number,
   teamRegion?: string,
@@ -209,6 +225,7 @@ export async function listNonWorkingDaysForYear(
   ]);
 
   const transferFromDates = new Set(transfers.map((t) => utcDateToMoscowDateString(t.fromDate)));
+  const transferToDates = new Set(transfers.map((t) => utcDateToMoscowDateString(t.toDate)));
   const items: { id: string | null; date: string; type: string; description?: string; region?: string }[] = [];
 
   for (const h of listFederalHolidayStringsForYear(year)) {
@@ -223,6 +240,18 @@ export async function listNonWorkingDaysForYear(
       date: utcDateToMoscowDateString(tr.toDate),
       type: 'transfer',
       description: tr.description || 'Перенесенный выходной день',
+    });
+  }
+
+  for (const date of listDefaultFederalTransferDatesForYear(year)) {
+    if (transferToDates.has(date)) {
+      continue;
+    }
+    items.push({
+      id: null,
+      date,
+      type: 'transfer',
+      description: 'Нерабочий день (производственный календарь РФ)',
     });
   }
 
