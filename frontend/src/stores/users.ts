@@ -53,10 +53,5 @@ export const useUsersStore = defineStore('users', () => {
     return data;
   }
 
-  async function importUsers(teamId: string, rows: { fullName: string }[]): Promise<User[]> {
-    const { data } = await api.post<{ ok: boolean; users: User[] }>('/users/import', { teamId, rows });
-    return data.users;
-  }
-
-  return { users, loading, error, fetchUsers, createUser, updateUser, deleteUser, importUsers };
+  return { users, loading, error, fetchUsers, createUser, updateUser, deleteUser };
 });

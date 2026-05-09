@@ -152,53 +152,12 @@ const {
 </template>
 
 <style scoped lang="scss">
-.home-tips {
-  margin-bottom: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface-muted);
-  border: 1px dashed var(--border);
-}
-
-.home-tips__title {
-  margin: 0 0 var(--space-2);
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.home-tips__list {
-  margin: 0;
-  padding-left: 1.25rem;
-  display: grid;
-  gap: 0.65rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-  line-height: 1.45;
-}
-
-.home-tips__list strong {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.home-tips__code {
-  font-size: 0.85em;
-  padding: 0.1rem 0.35rem;
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-
 .card-heading {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
-}
-
-.card-heading--with-actions {
-  flex-wrap: wrap;
 }
 
 .card-heading__title,

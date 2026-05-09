@@ -53,7 +53,6 @@ apiRouter.delete('/teams/:id', asyncHandler(requireAdmin), asyncHandler(teamsCon
 
 apiRouter.get('/users', asyncHandler(optionalAuth), asyncHandler(usersController.listUsers));
 apiRouter.post('/users', asyncHandler(requireAdmin), asyncHandler(usersController.createUser));
-apiRouter.post('/users/import', asyncHandler(requireAdmin), asyncHandler(usersController.importUsers));
 apiRouter.put('/users/:id', asyncHandler(requireAdmin), asyncHandler(usersController.updateUser));
 apiRouter.delete('/users/:id', asyncHandler(requireAdmin), asyncHandler(usersController.deleteUser));
 

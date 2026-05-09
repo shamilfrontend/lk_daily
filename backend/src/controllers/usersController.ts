@@ -21,15 +21,6 @@ const updateBody = Joi.object({
   onMaternityLeave: Joi.boolean(),
 }).min(1);
 
-const importBody = Joi.object({
-  teamId: Joi.string().required(),
-  rows: Joi.array()
-    .items(Joi.object({ fullName: Joi.string().trim().min(1).required() }))
-    .min(1)
-    .max(500)
-    .required(),
-});
-
 export async function listUsers(req: Request, res: Response): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
   const allowed = allowedTeamIdSet(req.auth);
@@ -144,34 +135,4 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
   await user.save();
   await removeUserFromQueue(user.teamId, user._id);
   res.json(user);
-}
-
-export async function importUsers(req: Request, res: Response): Promise<void> {
-  const { error, value } = importBody.validate(req.body);
-  if (error) {
-    throw new HttpError(400, error.message);
-  }
-  const teamId = value.teamId as string;
-  if (!mongoose.isValidObjectId(teamId)) {
-    throw new HttpError(400, 'Invalid teamId');
-  }
-  assertTeamAccess(req.auth, teamId);
-  const team = await Team.findById(teamId);
-  if (!team) {
-    throw new HttpError(404, 'Team not found');
-  }
-  const rows = value.rows as { fullName: string }[];
-  const created: mongoose.Types.ObjectId[] = [];
-  for (const row of rows) {
-    const user = await User.create({
-      fullName: row.fullName.trim(),
-      teamId: team._id,
-      isActive: true,
-      onMaternityLeave: false,
-    });
-    await appendUserToQueueEnd(team._id, user._id);
-    created.push(user._id);
-  }
-  const users = await User.find({ _id: { $in: created } }).sort({ fullName: 1 }).lean();
-  res.status(201).json({ ok: true, created: users.length, users });
 }
