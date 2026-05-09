@@ -57,7 +57,9 @@ async function main(): Promise<void> {
   app.get('/metrics', (_req, res) => {
     const uptimeSec = Math.floor((Date.now() - serverStartedAt) / 1000);
     res.type('text/plain; version=0.0.4; charset=utf-8');
-    res.send(`# HELP lk_daily_uptime_seconds Process uptime\n# TYPE lk_daily_uptime_seconds counter\nlk_daily_uptime_seconds ${uptimeSec}\n`);
+    res.send(
+      `# HELP lk_daily_uptime_seconds Process uptime\n# TYPE lk_daily_uptime_seconds counter\nlk_daily_uptime_seconds ${uptimeSec}\n`,
+    );
   });
 
   app.use('/api', apiRouter);

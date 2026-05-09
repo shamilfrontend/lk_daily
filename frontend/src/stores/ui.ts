@@ -22,7 +22,8 @@ export const useUiStore = defineStore('ui', () => {
 
   function requestAdminLogin(redirect: string, hint?: string): void {
     redirectAfterLogin.value = redirect;
-    adminLoginHint.value = hint ?? 'Чтобы открыть этот раздел, войдите как администратор.';
+    adminLoginHint.value =
+      hint ?? 'Чтобы открыть этот раздел, войдите как администратор.';
     adminLoginModalOpen.value = true;
   }
 

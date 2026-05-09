@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
+
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -65,7 +66,10 @@ watch(teamId, async (id) => {
     await queue.loadAll(id, 1);
     localIds.value = [...queue.order];
   } catch (e) {
-    error.value = users.error ?? queue.error ?? getApiErrorMessage(e, 'Не удалось загрузить очередь');
+    error.value =
+      users.error ??
+      queue.error ??
+      getApiErrorMessage(e, 'Не удалось загрузить очередь');
   }
 });
 
@@ -101,7 +105,8 @@ async function addSubstitution(): Promise<void> {
     subDate.value = '';
     subUserId.value = '';
   } catch (e) {
-    error.value = queue.error ?? getApiErrorMessage(e, 'Не удалось сохранить подмену');
+    error.value =
+      queue.error ?? getApiErrorMessage(e, 'Не удалось сохранить подмену');
   } finally {
     subBusy.value = false;
   }
@@ -114,7 +119,8 @@ async function removeSubstitutionRow(moscowDate: string): Promise<void> {
   try {
     await queue.deleteSubstitution(teamId.value, moscowDate);
   } catch (e) {
-    error.value = queue.error ?? getApiErrorMessage(e, 'Не удалось удалить подмену');
+    error.value =
+      queue.error ?? getApiErrorMessage(e, 'Не удалось удалить подмену');
   } finally {
     subBusy.value = false;
   }
@@ -128,11 +134,16 @@ async function swapSubstitutions(): Promise<void> {
   error.value = null;
   swapBusy.value = true;
   try {
-    await queue.swapSubstitutionDays(teamId.value, swapDateA.value, swapDateB.value);
+    await queue.swapSubstitutionDays(
+      teamId.value,
+      swapDateA.value,
+      swapDateB.value,
+    );
     swapDateA.value = '';
     swapDateB.value = '';
   } catch (e) {
-    error.value = queue.error ?? getApiErrorMessage(e, 'Не удалось поменять подмены');
+    error.value =
+      queue.error ?? getApiErrorMessage(e, 'Не удалось поменять подмены');
   } finally {
     swapBusy.value = false;
   }
@@ -171,7 +182,9 @@ async function sortAz(): Promise<void> {
       <div class="card-heading">
         <div>
           <h2 class="card-heading__title">Очередь докладчиков</h2>
-          <p class="card-heading__subtitle">Зажми маркер слева и перетащи участника на новое место.</p>
+          <p class="card-heading__subtitle">
+            Зажми маркер слева и перетащи участника на новое место.
+          </p>
         </div>
       </div>
 
@@ -191,26 +204,50 @@ async function sortAz(): Promise<void> {
       />
 
       <template v-else>
-        <draggable v-model="items" item-key="id" tag="ol" class="dlist" handle=".handle">
+        <draggable
+          v-model="items"
+          item-key="id"
+          tag="ol"
+          class="dlist"
+          handle=".handle"
+        >
           <template #item="{ element, index }">
             <li class="ditem">
               <div class="ditem__main">
                 <span class="handle" title="Потянуть">⠿</span>
                 <div>
                   <p class="ditem__position">Позиция {{ index + 1 }}</p>
-                  <p class="ditem__name">{{ nameById.get(element.id) ?? element.id }}</p>
+                  <p class="ditem__name">
+                    {{ nameById.get(element.id) ?? element.id }}
+                  </p>
                 </div>
               </div>
               <div class="ditem__badges">
-                <span v-if="onMaternityLeaveIds.has(element.id)" class="badge">в декрете</span>
+                <span v-if="onMaternityLeaveIds.has(element.id)" class="badge"
+                  >в декрете</span
+                >
               </div>
             </li>
           </template>
         </draggable>
 
         <div class="actions-row queue-actions">
-          <button type="button" class="btn btn--primary" :disabled="queue.loading" @click="save">Сохранить порядок</button>
-          <button type="button" class="btn" :disabled="queue.loading" @click="sortAz">Сортировать по алфавиту</button>
+          <button
+            type="button"
+            class="btn btn--primary"
+            :disabled="queue.loading"
+            @click="save"
+          >
+            Сохранить порядок
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :disabled="queue.loading"
+            @click="sortAz"
+          >
+            Сортировать по алфавиту
+          </button>
         </div>
       </template>
     </div>
@@ -220,8 +257,9 @@ async function sortAz(): Promise<void> {
         <div>
           <h2 class="card-heading__title">Подмена на один день</h2>
           <p class="card-heading__subtitle">
-            Укажи дату и участника, который выступит вместо следующего по очереди. Порядок очереди при этом не
-            меняется: сдвигается тот, кто был бы докладчиком без подмены.
+            Укажи дату и участника, который выступит вместо следующего по
+            очереди. Порядок очереди при этом не меняется: сдвигается тот, кто
+            был бы докладчиком без подмены.
           </p>
         </div>
       </div>
@@ -233,16 +271,33 @@ async function sortAz(): Promise<void> {
         </div>
         <div class="field field--grow">
           <label for="sub-user">Докладчик</label>
-          <select id="sub-user" v-model="subUserId" class="select" :disabled="subBusy">
+          <select
+            id="sub-user"
+            v-model="subUserId"
+            class="select"
+            :disabled="subBusy"
+          >
             <option value="" disabled>Выберите участника</option>
-            <option v-for="u in users.users.filter((x) => x.isActive)" :key="u._id" :value="u._id">
+            <option
+              v-for="u in users.users.filter((x) => x.isActive)"
+              :key="u._id"
+              :value="u._id"
+            >
               {{ u.fullName }}
             </option>
           </select>
         </div>
         <div class="field field--action">
-          <label class="visually-hidden" for="sub-save">Сохранить подмену</label>
-          <button id="sub-save" type="button" class="btn btn--primary" :disabled="subBusy || !subDate || !subUserId" @click="addSubstitution">
+          <label class="visually-hidden" for="sub-save"
+            >Сохранить подмену</label
+          >
+          <button
+            id="sub-save"
+            type="button"
+            class="btn btn--primary"
+            :disabled="subBusy || !subDate || !subUserId"
+            @click="addSubstitution"
+          >
             Сохранить
           </button>
         </div>
@@ -269,7 +324,12 @@ async function sortAz(): Promise<void> {
               <td>{{ row.moscowDate }}</td>
               <td>{{ row.substituteFullName || row.substituteUserId }}</td>
               <td class="table-actions">
-                <button type="button" class="btn btn--ghost" :disabled="subBusy" @click="removeSubstitutionRow(row.moscowDate)">
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  :disabled="subBusy"
+                  @click="removeSubstitutionRow(row.moscowDate)"
+                >
                   Удалить
                 </button>
               </td>
@@ -301,7 +361,8 @@ async function sortAz(): Promise<void> {
         </div>
       </div>
       <p class="swap-hint">
-        На дате A будет показан докладчик с даты B и наоборот (по прогнозу очереди без учёта уже введённых подмен).
+        На дате A будет показан докладчик с даты B и наоборот (по прогнозу
+        очереди без учёта уже введённых подмен).
       </p>
     </div>
   </section>

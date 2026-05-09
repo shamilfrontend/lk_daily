@@ -18,9 +18,12 @@ function assertWebhookAuth(req: Request): void {
   }
   const auth = req.headers.authorization;
   const bearer =
-    typeof auth === 'string' && auth.startsWith('Bearer ') ? auth.slice(7).trim() : undefined;
+    typeof auth === 'string' && auth.startsWith('Bearer ')
+      ? auth.slice(7).trim()
+      : undefined;
   const headerSecret = req.headers['x-lk-daily-secret'];
-  const plain = typeof headerSecret === 'string' ? headerSecret.trim() : undefined;
+  const plain =
+    typeof headerSecret === 'string' ? headerSecret.trim() : undefined;
   const token = bearer ?? plain;
   if (!token || token !== secret) {
     throw new HttpError(401, 'Unauthorized');
@@ -71,7 +74,10 @@ export async function notifyToday(req: Request, res: Response): Promise<void> {
 
   if (!r.ok) {
     const t = await r.text().catch(() => '');
-    throw new HttpError(502, `Webhook delivery failed: ${r.status} ${t.slice(0, 200)}`);
+    throw new HttpError(
+      502,
+      `Webhook delivery failed: ${r.status} ${t.slice(0, 200)}`,
+    );
   }
 
   res.json({ ok: true, delivered: true });

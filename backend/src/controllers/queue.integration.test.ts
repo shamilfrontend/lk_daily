@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import type { Express } from 'express';
 import request from 'supertest';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
@@ -37,8 +45,16 @@ describe('queue API (integration)', () => {
     const team = await Team.create({ name: 'Test Team' });
     teamId = team._id.toString();
 
-    const ua = await User.create({ teamId: team._id, fullName: 'Alice', isActive: true });
-    const ub = await User.create({ teamId: team._id, fullName: 'Bob', isActive: true });
+    const ua = await User.create({
+      teamId: team._id,
+      fullName: 'Alice',
+      isActive: true,
+    });
+    const ub = await User.create({
+      teamId: team._id,
+      fullName: 'Bob',
+      isActive: true,
+    });
     userA = ua._id.toString();
     userB = ub._id.toString();
 
@@ -52,7 +68,9 @@ describe('queue API (integration)', () => {
       passwordHash: await bcrypt.hash('pwd12345', 8),
     });
 
-    const loginRes = await request(app).post('/api/auth/login').send({ login: 'adm', password: 'pwd12345' });
+    const loginRes = await request(app)
+      .post('/api/auth/login')
+      .send({ login: 'adm', password: 'pwd12345' });
     expect(loginRes.status).toBe(200);
     token = loginRes.body.token as string;
 
@@ -79,7 +97,10 @@ describe('queue API (integration)', () => {
     expect(res.status).toBe(200);
     expect(res.body.result.kind).toBe('ok');
     expect(res.body.result.user._id).toBe(userA);
-    expect(res.body.insights).toEqual({ vacationUserIds: [], maternityUserIds: [] });
+    expect(res.body.insights).toEqual({
+      vacationUserIds: [],
+      maternityUserIds: [],
+    });
     expect(res.body.alreadyRecordedToday).toBe(false);
   });
 
@@ -100,7 +121,9 @@ describe('queue API (integration)', () => {
 
   it('POST /queue/skip records skip status', async () => {
     invalidateCalendarCache();
-    await PresentationLog.deleteMany({ teamId: new mongoose.Types.ObjectId(teamId) });
+    await PresentationLog.deleteMany({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
 
     vi.restoreAllMocks();
     vi.spyOn(dateHelpers, 'getMoscowDateString').mockReturnValue('2026-04-14');
@@ -113,9 +136,11 @@ describe('queue API (integration)', () => {
 
     expect(res.status).toBe(200);
 
-    const log = await mongoose.connection.collection('presentationlogs').findOne({
-      teamId: new mongoose.Types.ObjectId(teamId),
-    });
+    const log = await mongoose.connection
+      .collection('presentationlogs')
+      .findOne({
+        teamId: new mongoose.Types.ObjectId(teamId),
+      });
     expect(log?.status).toBe('skipped');
   });
 
@@ -144,10 +169,16 @@ describe('queue API (integration)', () => {
     expect(createRes.body.ok).toBe(true);
     expect(createRes.body.substituteUserId).toBe(userB);
 
-    const listRes = await request(app).get('/api/queue/substitutions').query({ teamId });
+    const listRes = await request(app)
+      .get('/api/queue/substitutions')
+      .query({ teamId });
     expect(listRes.status).toBe(200);
     expect(Array.isArray(listRes.body.rows)).toBe(true);
-    expect(listRes.body.rows.some((r: { moscowDate: string }) => r.moscowDate === moscowDate)).toBe(true);
+    expect(
+      listRes.body.rows.some(
+        (r: { moscowDate: string }) => r.moscowDate === moscowDate,
+      ),
+    ).toBe(true);
 
     const delRes = await request(app)
       .delete('/api/queue/substitutions')
@@ -157,8 +188,14 @@ describe('queue API (integration)', () => {
     expect(delRes.status).toBe(200);
     expect(delRes.body.deleted).toBe(true);
 
-    const listAfter = await request(app).get('/api/queue/substitutions').query({ teamId });
-    expect(listAfter.body.rows.some((r: { moscowDate: string }) => r.moscowDate === moscowDate)).toBe(false);
+    const listAfter = await request(app)
+      .get('/api/queue/substitutions')
+      .query({ teamId });
+    expect(
+      listAfter.body.rows.some(
+        (r: { moscowDate: string }) => r.moscowDate === moscowDate,
+      ),
+    ).toBe(false);
   });
 
   it('POST /queue/substitutions without JWT returns 401', async () => {

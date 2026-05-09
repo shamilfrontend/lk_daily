@@ -42,31 +42,99 @@ const exportLimiter = rateLimit({
 apiRouter.use(apiLimiter);
 
 apiRouter.post('/auth/login', loginLimiter, asyncHandler(authController.login));
-apiRouter.get('/auth/verify', asyncHandler(requireAdmin), asyncHandler(authController.verify));
+apiRouter.get(
+  '/auth/verify',
+  asyncHandler(requireAdmin),
+  asyncHandler(authController.verify),
+);
 
-apiRouter.post('/hooks/notify-today', asyncHandler(hooksController.notifyToday));
+apiRouter.post(
+  '/hooks/notify-today',
+  asyncHandler(hooksController.notifyToday),
+);
 
-apiRouter.get('/teams', asyncHandler(optionalAuth), asyncHandler(teamsController.listTeams));
-apiRouter.post('/teams', asyncHandler(requireAdmin), asyncHandler(teamsController.createTeam));
-apiRouter.put('/teams/:id', asyncHandler(requireAdmin), asyncHandler(teamsController.updateTeam));
-apiRouter.delete('/teams/:id', asyncHandler(requireAdmin), asyncHandler(teamsController.deleteTeam));
+apiRouter.get(
+  '/teams',
+  asyncHandler(optionalAuth),
+  asyncHandler(teamsController.listTeams),
+);
+apiRouter.post(
+  '/teams',
+  asyncHandler(requireAdmin),
+  asyncHandler(teamsController.createTeam),
+);
+apiRouter.put(
+  '/teams/:id',
+  asyncHandler(requireAdmin),
+  asyncHandler(teamsController.updateTeam),
+);
+apiRouter.delete(
+  '/teams/:id',
+  asyncHandler(requireAdmin),
+  asyncHandler(teamsController.deleteTeam),
+);
 
-apiRouter.get('/users', asyncHandler(optionalAuth), asyncHandler(usersController.listUsers));
-apiRouter.post('/users', asyncHandler(requireAdmin), asyncHandler(usersController.createUser));
-apiRouter.put('/users/:id', asyncHandler(requireAdmin), asyncHandler(usersController.updateUser));
-apiRouter.delete('/users/:id', asyncHandler(requireAdmin), asyncHandler(usersController.deleteUser));
+apiRouter.get(
+  '/users',
+  asyncHandler(optionalAuth),
+  asyncHandler(usersController.listUsers),
+);
+apiRouter.post(
+  '/users',
+  asyncHandler(requireAdmin),
+  asyncHandler(usersController.createUser),
+);
+apiRouter.put(
+  '/users/:id',
+  asyncHandler(requireAdmin),
+  asyncHandler(usersController.updateUser),
+);
+apiRouter.delete(
+  '/users/:id',
+  asyncHandler(requireAdmin),
+  asyncHandler(usersController.deleteUser),
+);
 
-apiRouter.get('/vacations', asyncHandler(optionalAuth), asyncHandler(vacationsController.listVacations));
-apiRouter.post('/vacations', asyncHandler(requireAdmin), asyncHandler(vacationsController.createVacation));
-apiRouter.put('/vacations/:id', asyncHandler(requireAdmin), asyncHandler(vacationsController.updateVacation));
-apiRouter.delete('/vacations/:id', asyncHandler(requireAdmin), asyncHandler(vacationsController.deleteVacation));
+apiRouter.get(
+  '/vacations',
+  asyncHandler(optionalAuth),
+  asyncHandler(vacationsController.listVacations),
+);
+apiRouter.post(
+  '/vacations',
+  asyncHandler(requireAdmin),
+  asyncHandler(vacationsController.createVacation),
+);
+apiRouter.put(
+  '/vacations/:id',
+  asyncHandler(requireAdmin),
+  asyncHandler(vacationsController.updateVacation),
+);
+apiRouter.delete(
+  '/vacations/:id',
+  asyncHandler(requireAdmin),
+  asyncHandler(vacationsController.deleteVacation),
+);
 
-apiRouter.get('/non-working-days', asyncHandler(nonWorkingDaysController.listNonWorkingDays));
+apiRouter.get(
+  '/non-working-days',
+  asyncHandler(nonWorkingDaysController.listNonWorkingDays),
+);
 
-apiRouter.get('/holiday-transfers', asyncHandler(holidayTransfersController.listHolidayTransfers));
-apiRouter.get('/today-holidays', asyncHandler(todayHolidaysController.listTodayHolidays));
+apiRouter.get(
+  '/holiday-transfers',
+  asyncHandler(holidayTransfersController.listHolidayTransfers),
+);
+apiRouter.get(
+  '/today-holidays',
+  asyncHandler(todayHolidaysController.listTodayHolidays),
+);
 
-apiRouter.get('/stats/team', asyncHandler(requireAdmin), asyncHandler(statsController.getTeamStats));
+apiRouter.get(
+  '/stats/team',
+  asyncHandler(requireAdmin),
+  asyncHandler(statsController.getTeamStats),
+);
 
 apiRouter.get('/queue/current', asyncHandler(queueController.getCurrent));
 apiRouter.get('/queue/order', asyncHandler(queueController.getOrder));
@@ -81,7 +149,10 @@ apiRouter.get(
   asyncHandler(queueController.exportUpcomingIcs),
 );
 apiRouter.get('/queue/upcoming', asyncHandler(queueController.getUpcoming));
-apiRouter.get('/queue/substitutions', asyncHandler(queueSubstitutionsController.listSubstitutions));
+apiRouter.get(
+  '/queue/substitutions',
+  asyncHandler(queueSubstitutionsController.listSubstitutions),
+);
 apiRouter.post(
   '/queue/substitutions',
   asyncHandler(requireAdmin),
@@ -97,9 +168,21 @@ apiRouter.delete(
   asyncHandler(requireAdmin),
   asyncHandler(queueSubstitutionsController.deleteSubstitution),
 );
-apiRouter.post('/queue/present', asyncHandler(requireAdmin), asyncHandler(queueController.present));
-apiRouter.post('/queue/skip', asyncHandler(requireAdmin), asyncHandler(queueController.skip));
-apiRouter.put('/queue/order', asyncHandler(requireAdmin), asyncHandler(queueController.putOrder));
+apiRouter.post(
+  '/queue/present',
+  asyncHandler(requireAdmin),
+  asyncHandler(queueController.present),
+);
+apiRouter.post(
+  '/queue/skip',
+  asyncHandler(requireAdmin),
+  asyncHandler(queueController.skip),
+);
+apiRouter.put(
+  '/queue/order',
+  asyncHandler(requireAdmin),
+  asyncHandler(queueController.putOrder),
+);
 apiRouter.post(
   '/queue/sort-alphabetically',
   asyncHandler(requireAdmin),

@@ -9,6 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,vue}\"",
+    "format": "prettier --write \"src/**/*.{ts,vue,scss,css,json}\" && eslint \"src/**/*.{ts,vue}\" --fix && prettier --write \"src/**/*.{ts,vue,scss,css,json}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,vue,scss,css,json}\" && eslint \"src/**/*.{ts,vue}\"",
     "e2e": "playwright install chromium && playwright test",
     "e2e:install": "playwright install chromium",
     "postinstall": "playwright install chromium"
@@ -24,12 +26,18 @@
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@playwright/test": "^1.50.0",
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.18.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-import-resolver-typescript": "^3.7.0",
+    "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-vue": "^9.32.0",
     "globals": "^15.14.0",
+    "prettier": "^3.4.2",
     "sass": "^1.83.4",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.21.0",

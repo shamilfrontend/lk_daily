@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { getMoscowISODay, isStaticFederalHolidayMoscow } from './calendarService.js';
+import {
+  getMoscowISODay,
+  isStaticFederalHolidayMoscow,
+} from './calendarService.js';
 
 describe('isStaticFederalHolidayMoscow', () => {
   it('detects New Year', () => {

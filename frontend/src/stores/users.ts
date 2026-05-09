@@ -1,16 +1,21 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+
 import { api } from '@/api/client';
-import type { User } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
+
+import type { User } from '@/types/api';
 
 export const useUsersStore = defineStore('users', () => {
   const users = ref<User[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  async function fetchUsers(teamId?: string, includeInactive = false): Promise<void> {
+  async function fetchUsers(
+    teamId?: string,
+    includeInactive = false,
+  ): Promise<void> {
     loading.value = true;
     error.value = null;
     try {
@@ -28,7 +33,9 @@ export const useUsersStore = defineStore('users', () => {
   }
 
   /** Все участники по доступным командам (для дашборда: дни рождения и т.п.). */
-  async function fetchUsersAllAccessibleTeams(includeInactive = false): Promise<void> {
+  async function fetchUsersAllAccessibleTeams(
+    includeInactive = false,
+  ): Promise<void> {
     loading.value = true;
     error.value = null;
     try {

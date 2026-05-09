@@ -59,9 +59,10 @@ const forwardedForInput = computed(() => {
 });
 
 const inputAttrs = computed(() => {
-  const cls = [props.inputClass, props.invalid ? 'dp__input_invalid' : null].filter(
-    (c): c is string => typeof c === 'string' && c.length > 0,
-  );
+  const cls = [
+    props.inputClass,
+    props.invalid ? 'dp__input_invalid' : null,
+  ].filter((c): c is string => typeof c === 'string' && c.length > 0);
 
   return {
     ...forwardedForInput.value,
@@ -119,8 +120,12 @@ function onUpdateModelValue(value: unknown): void {
   emit('update:modelValue', formatFromDate(d));
 }
 
-const minDate = computed(() => (props.min?.trim() ? parseToDate(props.min) : undefined));
-const maxDate = computed(() => (props.max?.trim() ? parseToDate(props.max) : undefined));
+const minDate = computed(() =>
+  props.min?.trim() ? parseToDate(props.min) : undefined,
+);
+const maxDate = computed(() =>
+  props.max?.trim() ? parseToDate(props.max) : undefined,
+);
 
 const rootMod = computed(() => ({
   [`app-datepicker-root--size-${props.size}`]: true,
@@ -132,7 +137,11 @@ const rootClass = computed(() => [attrs.class]);
 </script>
 
 <template>
-  <div class="app-datepicker-root dp__theme_light" :class="[rootMod, rootClass]" :style="inputStyle">
+  <div
+    class="app-datepicker-root dp__theme_light"
+    :class="[rootMod, rootClass]"
+    :style="inputStyle"
+  >
     <label
       v-if="label !== undefined && label !== ''"
       class="app-datepicker-label field__label"
@@ -245,21 +254,26 @@ const rootClass = computed(() => [attrs.class]);
   box-shadow: 0 0 0 3px var(--focus-ring-color);
 }
 
-.app-datepicker-vuepic :deep(.dp__input_wrap:focus-within .dp__input:not(.dp__input_invalid)) {
+.app-datepicker-vuepic
+  :deep(.dp__input_wrap:focus-within .dp__input:not(.dp__input_invalid)) {
   border-color: var(--accent);
 }
 
 /** Без очистки: скрыть крестик */
-.app-datepicker-root:not(.app-datepicker-root--clearable) :deep(.dp--clear-btn) {
+.app-datepicker-root:not(.app-datepicker-root--clearable)
+  :deep(.dp--clear-btn) {
   display: none;
 }
 
 /** Без иконки календаря */
-.app-datepicker-root:not(.app-datepicker-root--calendar-trigger) :deep(.dp__input_icon) {
+.app-datepicker-root:not(.app-datepicker-root--calendar-trigger)
+  :deep(.dp__input_icon) {
   display: none;
 }
 
-.app-datepicker-root:not(.app-datepicker-root--calendar-trigger):not(.app-datepicker-root--clearable)
+.app-datepicker-root:not(.app-datepicker-root--calendar-trigger):not(
+    .app-datepicker-root--clearable
+  )
   :deep(.dp__input) {
   padding-inline: 0.85rem;
 }

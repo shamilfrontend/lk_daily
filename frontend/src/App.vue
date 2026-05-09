@@ -13,11 +13,15 @@ const router = useRouter();
 const mobileNavOpen = ref(false);
 
 const currentPageTitle = computed(() => {
-  return typeof route.meta.pageTitle === 'string' ? route.meta.pageTitle : 'LK Daily';
+  return typeof route.meta.pageTitle === 'string'
+    ? route.meta.pageTitle
+    : 'LK Daily';
 });
 
 const currentPageDescription = computed(() => {
-  return typeof route.meta.pageDescription === 'string' ? route.meta.pageDescription : '';
+  return typeof route.meta.pageDescription === 'string'
+    ? route.meta.pageDescription
+    : '';
 });
 
 function applyTeamFromQuery(teamId: unknown): void {
@@ -30,7 +34,7 @@ function applyTeamFromQuery(teamId: unknown): void {
 }
 
 function onTeamChange(event: Event): void {
-  const value = (event.target as HTMLSelectElement).value;
+  const { value } = event.target as HTMLSelectElement;
   app.selectedTeamId = value || null;
   const nextQuery = { ...route.query };
   if (value) {
@@ -128,8 +132,15 @@ watch(
     </header>
 
     <div class="app-layout__body">
-      <div v-if="mobileNavOpen" class="app-layout__overlay" @click="mobileNavOpen = false" />
-      <AppSidebar :mobile-open="mobileNavOpen" @navigate="mobileNavOpen = false" />
+      <div
+        v-if="mobileNavOpen"
+        class="app-layout__overlay"
+        @click="mobileNavOpen = false"
+      />
+      <AppSidebar
+        :mobile-open="mobileNavOpen"
+        @navigate="mobileNavOpen = false"
+      />
       <main class="app-layout__main">
         <div class="container">
           <RouterView />

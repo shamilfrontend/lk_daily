@@ -37,13 +37,19 @@ function ensureSafeProductionConfig(params: {
   }
 
   if (jwtSecret.length < 32 || jwtSecret === 'dev-secret-change-me') {
-    throw new Error('In production JWT_SECRET must be set and at least 32 chars long');
+    throw new Error(
+      'In production JWT_SECRET must be set and at least 32 chars long',
+    );
   }
   if (adminLogin === 'admin' || adminPassword === 'admin123') {
-    throw new Error('In production ADMIN_LOGIN/ADMIN_PASSWORD must not use default values');
+    throw new Error(
+      'In production ADMIN_LOGIN/ADMIN_PASSWORD must not use default values',
+    );
   }
   if (corsOrigins.length === 0) {
-    throw new Error('In production CORS_ORIGINS must contain at least one origin');
+    throw new Error(
+      'In production CORS_ORIGINS must contain at least one origin',
+    );
   }
 }
 
@@ -53,7 +59,13 @@ const adminLogin = required('ADMIN_LOGIN');
 const adminPassword = required('ADMIN_PASSWORD');
 const corsOrigins = parseCorsOrigins();
 
-ensureSafeProductionConfig({ nodeEnv, jwtSecret, adminLogin, adminPassword, corsOrigins });
+ensureSafeProductionConfig({
+  nodeEnv,
+  jwtSecret,
+  adminLogin,
+  adminPassword,
+  corsOrigins,
+});
 
 export const env = {
   port: Number(process.env.PORT ?? 4000),
@@ -64,10 +76,16 @@ export const env = {
   nodeEnv,
   /** Пустой список: разрешить любой origin (удобно для dev). Иначе только перечисленные. */
   corsOrigins,
-  rateLimitLoginMax: Math.max(1, Number(process.env.RATE_LIMIT_LOGIN_MAX ?? 50)),
+  rateLimitLoginMax: Math.max(
+    1,
+    Number(process.env.RATE_LIMIT_LOGIN_MAX ?? 50),
+  ),
   rateLimitApiMax: Math.max(10, Number(process.env.RATE_LIMIT_API_MAX ?? 300)),
   /** Отдельный лимит для тяжёлых публичных GET (экспорт CSV/ICS). */
-  rateLimitExportMax: Math.max(5, Number(process.env.RATE_LIMIT_EXPORT_MAX ?? 60)),
+  rateLimitExportMax: Math.max(
+    5,
+    Number(process.env.RATE_LIMIT_EXPORT_MAX ?? 60),
+  ),
   /** URL исходящего webhook (Slack и т.п.); без него POST /api/hooks/notify-today вернёт 503. */
   get outboundWebhookUrl(): string | undefined {
     return optional('OUTBOUND_WEBHOOK_URL');

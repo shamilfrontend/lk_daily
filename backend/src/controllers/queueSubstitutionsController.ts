@@ -23,7 +23,10 @@ const swapBody = Joi.object({
   moscowDateB: Joi.string().pattern(moscowDateRe).required(),
 });
 
-export async function listSubstitutions(req: Request, res: Response): Promise<void> {
+export async function listSubstitutions(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
@@ -36,7 +39,9 @@ export async function listSubstitutions(req: Request, res: Response): Promise<vo
   if (to && !moscowDateRe.test(to)) {
     throw new HttpError(400, 'Invalid to date. Expected YYYY-MM-DD');
   }
-  const q: Record<string, unknown> = { teamId: new mongoose.Types.ObjectId(teamId) };
+  const q: Record<string, unknown> = {
+    teamId: new mongoose.Types.ObjectId(teamId),
+  };
   if (from && to) {
     q.moscowDate = { $gte: from, $lte: to };
   } else if (from) {
@@ -45,9 +50,15 @@ export async function listSubstitutions(req: Request, res: Response): Promise<vo
     q.moscowDate = { $lte: to };
   }
 
-  const rows = await QueueDaySubstitution.find(q).sort({ moscowDate: 1 }).lean();
-  const subIds = [...new Set(rows.map((r) => r.substituteUserId.toString()))].map((id) => new mongoose.Types.ObjectId(id));
-  const users = await User.find({ _id: { $in: subIds } }).select('fullName').lean();
+  const rows = await QueueDaySubstitution.find(q)
+    .sort({ moscowDate: 1 })
+    .lean();
+  const subIds = [
+    ...new Set(rows.map((r) => r.substituteUserId.toString())),
+  ].map((id) => new mongoose.Types.ObjectId(id));
+  const users = await User.find({ _id: { $in: subIds } })
+    .select('fullName')
+    .lean();
   const nameById = new Map(users.map((u) => [u._id.toString(), u.fullName]));
 
   res.json({
@@ -61,7 +72,10 @@ export async function listSubstitutions(req: Request, res: Response): Promise<vo
   });
 }
 
-export async function createSubstitution(req: Request, res: Response): Promise<void> {
+export async function createSubstitution(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const { error, value } = createBody.validate(req.body);
   if (error) {
     throw new HttpError(400, error.message);
@@ -71,7 +85,10 @@ export async function createSubstitution(req: Request, res: Response): Promise<v
     moscowDate: string;
     substituteUserId: string;
   };
-  if (!mongoose.isValidObjectId(teamId) || !mongoose.isValidObjectId(substituteUserId)) {
+  if (
+    !mongoose.isValidObjectId(teamId) ||
+    !mongoose.isValidObjectId(substituteUserId)
+  ) {
     throw new HttpError(400, 'Invalid id');
   }
   assertTeamAccess(req.auth, teamId);
@@ -88,7 +105,10 @@ export async function createSubstitution(req: Request, res: Response): Promise<v
     .select('_id fullName')
     .lean();
   if (!subUser) {
-    throw new HttpError(400, 'substituteUserId must be an active user of this team');
+    throw new HttpError(
+      400,
+      'substituteUserId must be an active user of this team',
+    );
   }
 
   const doc = await QueueDaySubstitution.findOneAndUpdate(
@@ -107,7 +127,10 @@ export async function createSubstitution(req: Request, res: Response): Promise<v
   });
 }
 
-export async function deleteSubstitution(req: Request, res: Response): Promise<void> {
+export async function deleteSubstitution(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
   const moscowDate = req.query.moscowDate as string | undefined;
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
@@ -124,7 +147,10 @@ export async function deleteSubstitution(req: Request, res: Response): Promise<v
   res.json({ ok: true, deleted: r.deletedCount > 0 });
 }
 
-export async function swapSubstitutionDays(req: Request, res: Response): Promise<void> {
+export async function swapSubstitutionDays(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const { error, value } = swapBody.validate(req.body);
   if (error) {
     throw new HttpError(400, error.message);
@@ -140,7 +166,10 @@ export async function swapSubstitutionDays(req: Request, res: Response): Promise
     await applySubstitutionDaySwap(teamId, moscowDateA, moscowDateB);
   } catch (e) {
     if (e instanceof Error && e.message === 'SWAP_NO_PRESENTER') {
-      throw new HttpError(400, 'Cannot swap: missing presenter on one of the dates');
+      throw new HttpError(
+        400,
+        'Cannot swap: missing presenter on one of the dates',
+      );
     }
     if (e instanceof Error && e.message === 'TEAM_NOT_FOUND') {
       throw new HttpError(404, 'Team not found');

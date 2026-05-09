@@ -24,7 +24,10 @@ function showNotification(
   });
 }
 
-export function notifySuccess(text: string, title = DEFAULT_SUCCESS_TITLE): void {
+export function notifySuccess(
+  text: string,
+  title = DEFAULT_SUCCESS_TITLE,
+): void {
   showNotification('success', text, { title });
 }
 
@@ -33,7 +36,10 @@ export function notifyError(
   fallback: string,
   title = DEFAULT_ERROR_TITLE,
 ): void {
-  showNotification('error', getApiErrorMessage(error, fallback), { title, duration: 5000 });
+  showNotification('error', getApiErrorMessage(error, fallback), {
+    title,
+    duration: 5000,
+  });
 }
 
 export function notifyInfo(text: string, title = DEFAULT_INFO_TITLE): void {

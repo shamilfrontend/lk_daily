@@ -29,7 +29,11 @@ describe('history API (integration)', () => {
 
     const team = await Team.create({ name: 'Hist Team' });
     teamId = team._id.toString();
-    const u = await User.create({ teamId: team._id, fullName: 'Tester', isActive: true });
+    const u = await User.create({
+      teamId: team._id,
+      fullName: 'Tester',
+      isActive: true,
+    });
 
     for (let i = 0; i < 5; i++) {
       const d = new Date(Date.UTC(2025, 0, 5 + i, 12, 0, 0));
@@ -50,7 +54,9 @@ describe('history API (integration)', () => {
   });
 
   it('GET /history returns paginated payload', async () => {
-    const res = await request(app).get('/api/history').query({ teamId, page: 1, limit: 2 });
+    const res = await request(app)
+      .get('/api/history')
+      .query({ teamId, page: 1, limit: 2 });
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.rows)).toBe(true);
     expect(res.body.rows.length).toBe(2);
@@ -60,8 +66,12 @@ describe('history API (integration)', () => {
   });
 
   it('GET /history page 2 appends logically older rows', async () => {
-    const p1 = await request(app).get('/api/history').query({ teamId, page: 1, limit: 2 });
-    const p2 = await request(app).get('/api/history').query({ teamId, page: 2, limit: 2 });
+    const p1 = await request(app)
+      .get('/api/history')
+      .query({ teamId, page: 1, limit: 2 });
+    const p2 = await request(app)
+      .get('/api/history')
+      .query({ teamId, page: 2, limit: 2 });
     expect(p1.body.rows[0]._id).not.toBe(p2.body.rows[0]._id);
   });
 });

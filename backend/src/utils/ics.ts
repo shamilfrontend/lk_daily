@@ -30,9 +30,15 @@ export type IcsEventInput = {
   description?: string;
 };
 
-export function buildIcsCalendar(prodid: string, events: IcsEventInput[]): string {
+export function buildIcsCalendar(
+  prodid: string,
+  events: IcsEventInput[],
+): string {
   const stamp =
-    new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z') || '19700101T000000Z';
+    new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d{3}Z$/, 'Z') || '19700101T000000Z';
   const lines: string[] = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',

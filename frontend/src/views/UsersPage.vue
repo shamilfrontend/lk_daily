@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppModal from '@/components/UI/AppModal.vue';
@@ -9,10 +10,11 @@ import AppState from '@/components/UI/AppState.vue';
 import { useAppStore } from '@/stores/app';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
-import type { User } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyInfo } from '@/composables/useAppNotifications';
 import { formatDayMonthRu, moscowTodayString } from '@/utils/dates';
+
+import type { User } from '@/types/api';
 
 const app = useAppStore();
 const teams = useTeamsStore();
@@ -55,7 +57,8 @@ watch(
     if (!id) return;
     pageError.value = null;
     void users.fetchUsers(id, true).catch((e) => {
-      pageError.value = users.error ?? getApiErrorMessage(e, 'Не удалось загрузить участников');
+      pageError.value =
+        users.error ?? getApiErrorMessage(e, 'Не удалось загрузить участников');
     });
   },
   { immediate: true },
@@ -152,7 +155,10 @@ async function remove(): Promise<void> {
     confirmOpen.value = false;
     pendingRemoval.value = null;
   } catch (e) {
-    pageError.value = getApiErrorMessage(e, 'Не удалось деактивировать участника');
+    pageError.value = getApiErrorMessage(
+      e,
+      'Не удалось деактивировать участника',
+    );
   } finally {
     confirmLoading.value = false;
   }
@@ -177,7 +183,11 @@ function isBirthdayToday(value?: string): boolean {
   const birthdayDate = new Date(value);
   if (Number.isNaN(birthdayDate.getTime())) return false;
   const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
-  return birthdayDate.getUTCMonth() + 1 === todayMonth && birthdayDate.getUTCDate() === todayDay && todayYear > 0;
+  return (
+    birthdayDate.getUTCMonth() + 1 === todayMonth &&
+    birthdayDate.getUTCDate() === todayDay &&
+    todayYear > 0
+  );
 }
 </script>
 
@@ -188,7 +198,9 @@ function isBirthdayToday(value?: string): boolean {
       subtitle="Управляй составом команды, активностью и статусом декрета из одного экрана."
     >
       <template #actions>
-        <button type="button" class="btn btn--primary" @click="openCreateModal">Добавить участника</button>
+        <button type="button" class="btn btn--primary" @click="openCreateModal">
+          Добавить участника
+        </button>
       </template>
     </AppPageHeader>
 
@@ -196,7 +208,10 @@ function isBirthdayToday(value?: string): boolean {
       <div class="users-list-head">
         <div>
           <h2 class="users-list-head__title">Список участников</h2>
-          <p class="users-list-head__subtitle">Редактируй профиль участника, отпуска и активность без переходов между формами.</p>
+          <p class="users-list-head__subtitle">
+            Редактируй профиль участника, отпуска и активность без переходов
+            между формами.
+          </p>
         </div>
       </div>
 
@@ -232,13 +247,26 @@ function isBirthdayToday(value?: string): boolean {
               <td>{{ u.onMaternityLeave ? 'Да' : 'Нет' }}</td>
               <td :class="{ 'birthday-today': isBirthdayToday(u.birthday) }">
                 <span>{{ formatBirthdayForTable(u.birthday) }}</span>
-                <span v-if="isBirthdayToday(u.birthday)" class="birthday-today__hint">сегодня</span>
+                <span
+                  v-if="isBirthdayToday(u.birthday)"
+                  class="birthday-today__hint"
+                  >сегодня</span
+                >
               </td>
               <td>
                 <div class="actions-row">
-                  <button type="button" class="btn" @click="openEditModal(u)">Изменить</button>
-                  <button type="button" class="btn" @click="goVacations(u._id)">Отпуска</button>
-                  <button type="button" class="btn btn--danger" :disabled="!u.isActive" @click="openRemoveModal(u)">
+                  <button type="button" class="btn" @click="openEditModal(u)">
+                    Изменить
+                  </button>
+                  <button type="button" class="btn" @click="goVacations(u._id)">
+                    Отпуска
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--danger"
+                    :disabled="!u.isActive"
+                    @click="openRemoveModal(u)"
+                  >
                     Деактивировать
                   </button>
                 </div>
@@ -249,57 +277,74 @@ function isBirthdayToday(value?: string): boolean {
       </div>
     </div>
 
-  <AppModal
-    v-model="participantModalOpen"
-    :title="modalTitle"
-    size="md"
-    @close="onParticipantModalClose"
-  >
-    <form class="field-grid participant-modal-form" @submit.prevent="saveModal">
-      <label class="field__label" for="uc-team">Команда</label>
-      <select id="uc-team" v-model="modalTeamId" class="select" required>
-        <option v-for="t in teams.teams" :key="t._id" :value="t._id">{{ t.name }}</option>
-      </select>
+    <AppModal
+      v-model="participantModalOpen"
+      :title="modalTitle"
+      size="md"
+      @close="onParticipantModalClose"
+    >
+      <form
+        class="field-grid participant-modal-form"
+        @submit.prevent="saveModal"
+      >
+        <label class="field__label" for="uc-team">Команда</label>
+        <select id="uc-team" v-model="modalTeamId" class="select" required>
+          <option v-for="t in teams.teams" :key="t._id" :value="t._id">
+            {{ t.name }}
+          </option>
+        </select>
 
-      <label class="field__label" for="uc-name">ФИО*</label>
-      <input id="uc-name" v-model="modalFullName" class="input" required />
+        <label class="field__label" for="uc-name">ФИО*</label>
+        <input id="uc-name" v-model="modalFullName" class="input" required />
 
-      <label class="field__label" for="uc-active">Активен</label>
-      <div class="field-grid__check">
-        <input id="uc-active" v-model="modalIsActive" type="checkbox" class="checkbox" />
-      </div>
+        <label class="field__label" for="uc-active">Активен</label>
+        <div class="field-grid__check">
+          <input
+            id="uc-active"
+            v-model="modalIsActive"
+            type="checkbox"
+            class="checkbox"
+          />
+        </div>
 
-      <label class="field__label" for="uc-mat">В декрете</label>
-      <div class="field-grid__check">
-        <input id="uc-mat" v-model="modalOnMaternityLeave" type="checkbox" class="checkbox" />
-      </div>
+        <label class="field__label" for="uc-mat">В декрете</label>
+        <div class="field-grid__check">
+          <input
+            id="uc-mat"
+            v-model="modalOnMaternityLeave"
+            type="checkbox"
+            class="checkbox"
+          />
+        </div>
 
-      <label class="field__label" for="uc-birthday">День рождения</label>
-      <AppDatePicker id="uc-birthday" v-model="modalBirthday" />
+        <label class="field__label" for="uc-birthday">День рождения</label>
+        <AppDatePicker id="uc-birthday" v-model="modalBirthday" />
 
-      <p v-if="modalError" class="error field-grid__full">{{ modalError }}</p>
+        <p v-if="modalError" class="error field-grid__full">{{ modalError }}</p>
 
-      <div class="actions-row field-grid__full">
-        <button class="btn btn--primary" type="submit">Сохранить</button>
-        <button type="button" class="btn" @click="closeParticipantModal">Отмена</button>
-      </div>
-    </form>
-  </AppModal>
+        <div class="actions-row field-grid__full">
+          <button class="btn btn--primary" type="submit">Сохранить</button>
+          <button type="button" class="btn" @click="closeParticipantModal">
+            Отмена
+          </button>
+        </div>
+      </form>
+    </AppModal>
 
-  <AppConfirmModal
-    v-model="confirmOpen"
-    title="Деактивировать участника?"
-    :description="
-      pendingRemoval
-        ? `Участник ${pendingRemoval.fullName} перестанет участвовать в очереди, но его запись сохранится в системе.`
-        : ''
-    "
-    confirm-label="Деактивировать"
-    tone="danger"
-    :loading="confirmLoading"
-    @confirm="remove"
-  />
-</section>
+    <AppConfirmModal
+      v-model="confirmOpen"
+      title="Деактивировать участника?"
+      :description="
+        pendingRemoval
+          ? `Участник ${pendingRemoval.fullName} перестанет участвовать в очереди, но его запись сохранится в системе.`
+          : ''
+      "
+      confirm-label="Деактивировать"
+      tone="danger"
+      :loading="confirmLoading"
+      @confirm="remove"
+    />
+  </section>
 </template>
 
 <style scoped lang="scss">

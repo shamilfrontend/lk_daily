@@ -5,7 +5,9 @@ import { env } from '../config/env.js';
 import { Admin } from '../models/Admin.js';
 import { logger } from '../utils/logger.js';
 
-export async function seedAdminIfEmpty(opts?: { logSkip?: boolean }): Promise<boolean> {
+export async function seedAdminIfEmpty(opts?: {
+  logSkip?: boolean;
+}): Promise<boolean> {
   const count = await Admin.countDocuments();
   if (count > 0) {
     if (opts?.logSkip === true) {
@@ -30,7 +32,9 @@ async function main(): Promise<void> {
 }
 
 const entryPath = process.argv[1];
-const isDirectRun = typeof entryPath === 'string' && import.meta.url === pathToFileURL(entryPath).href;
+const isDirectRun =
+  typeof entryPath === 'string' &&
+  import.meta.url === pathToFileURL(entryPath).href;
 
 if (isDirectRun) {
   void main().catch((err: unknown) => {

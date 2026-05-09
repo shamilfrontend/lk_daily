@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import ProductionYearCalendar from '@/components/ProductionYearCalendar.vue';
@@ -72,7 +73,9 @@ function typeLabel(t: string): string {
       tone="error"
     >
       <template #actions>
-        <button type="button" class="btn btn--primary" @click="loadYear">Повторить</button>
+        <button type="button" class="btn btn--primary" @click="loadYear">
+          Повторить
+        </button>
       </template>
     </AppState>
 
@@ -80,8 +83,13 @@ function typeLabel(t: string): string {
       <div class="card">
         <div class="card-heading">
           <div>
-            <h2 class="card-heading__title">Визуальный календарь ({{ nwd.year }})</h2>
-            <p class="card-heading__subtitle">Цветом подсвечены федеральные, региональные, пользовательские даты и переносы.</p>
+            <h2 class="card-heading__title">
+              Визуальный календарь ({{ nwd.year }})
+            </h2>
+            <p class="card-heading__subtitle">
+              Цветом подсвечены федеральные, региональные, пользовательские даты
+              и переносы.
+            </p>
           </div>
         </div>
         <AppState
@@ -102,7 +110,9 @@ function typeLabel(t: string): string {
         <div class="card-heading">
           <div>
             <h2 class="card-heading__title">Список дат</h2>
-            <p class="card-heading__subtitle">Детальная таблица по всем дням, попавшим в календарь.</p>
+            <p class="card-heading__subtitle">
+              Детальная таблица по всем дням, попавшим в календарь.
+            </p>
           </div>
         </div>
 
@@ -128,10 +138,15 @@ function typeLabel(t: string): string {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(it, idx) in nwd.items" :key="`${it.date}-${it.type}-${idx}`">
+              <tr
+                v-for="(it, idx) in nwd.items"
+                :key="`${it.date}-${it.type}-${idx}`"
+              >
                 <td>{{ it.date }}</td>
                 <td>
-                  <span :class="typeClass(it.type)">{{ typeLabel(it.type) }}</span>
+                  <span :class="typeClass(it.type)">{{
+                    typeLabel(it.type)
+                  }}</span>
                 </td>
                 <td>{{ it.description ?? '—' }}</td>
               </tr>

@@ -1,7 +1,11 @@
 import { NonWorkingDay } from '../models/NonWorkingDay.js';
 import { HolidayTransfer } from '../models/HolidayTransfer.js';
 import { checkerCache } from './calendarCheckerCache.js';
-import { MOSCOW_TZ, moscowDateStringToUtc, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
+import {
+  MOSCOW_TZ,
+  moscowDateStringToUtc,
+  utcDateToMoscowDateString,
+} from '../utils/dateHelpers.js';
 
 export { invalidateCalendarCache } from './calendarCheckerCache.js';
 
@@ -23,11 +27,17 @@ const FEDERAL_MD: readonly { month: number; day: number; name: string }[] = [
   { month: 11, day: 4, name: 'День народного единства' },
 ];
 
-const EXTRA_NON_WORKING_DATES_BY_YEAR: Readonly<Record<number, readonly string[]>> = {
+const EXTRA_NON_WORKING_DATES_BY_YEAR: Readonly<
+  Record<number, readonly string[]>
+> = {
   2026: ['2026-01-09', '2026-03-09', '2026-05-11', '2026-12-31'],
 };
 
-function parseMoscowDateString(dateStr: string): { y: number; m: number; d: number } {
+function parseMoscowDateString(dateStr: string): {
+  y: number;
+  m: number;
+  d: number;
+} {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
     throw new Error('Invalid date');
   }
@@ -35,7 +45,10 @@ function parseMoscowDateString(dateStr: string): { y: number; m: number; d: numb
   return { y, m, d: day };
 }
 
-export function isStaticFederalHolidayMoscow(dateStr: string): { hit: boolean; name?: string } {
+export function isStaticFederalHolidayMoscow(dateStr: string): {
+  hit: boolean;
+  name?: string;
+} {
   const { m, d } = parseMoscowDateString(dateStr);
   const row = FEDERAL_MD.find((x) => x.month === m && x.day === d);
   return row ? { hit: true, name: row.name } : { hit: false };
@@ -83,7 +96,10 @@ function parseYear(dateStr: string): number {
   return Number(dateStr.slice(0, 4));
 }
 
-async function loadCalendarDataForYear(year: number, teamRegion?: string): Promise<CalendarData> {
+async function loadCalendarDataForYear(
+  year: number,
+  teamRegion?: string,
+): Promise<CalendarData> {
   const start = moscowDateStringToUtc(`${year}-01-01`);
   const end = moscowDateStringToUtc(`${year + 1}-01-01`);
 
@@ -100,7 +116,11 @@ async function loadCalendarDataForYear(year: number, teamRegion?: string): Promi
     const day = utcDateToMoscowDateString(row.date);
     if (row.type === 'custom') {
       customDates.add(day);
-    } else if (row.type === 'regional' && teamRegion && row.region === teamRegion) {
+    } else if (
+      row.type === 'regional' &&
+      teamRegion &&
+      row.region === teamRegion
+    ) {
       regionalDates.add(day);
     } else if (row.type === 'federal' || row.type === 'transfer') {
       dbFederalTransferDates.add(day);
@@ -110,10 +130,16 @@ async function loadCalendarDataForYear(year: number, teamRegion?: string): Promi
   return {
     customDates,
     regionalDates,
-    transferToDates: new Set(transfers.map((t) => utcDateToMoscowDateString(t.toDate))),
-    transferFromDates: new Set(transfers.map((t) => utcDateToMoscowDateString(t.fromDate))),
+    transferToDates: new Set(
+      transfers.map((t) => utcDateToMoscowDateString(t.toDate)),
+    ),
+    transferFromDates: new Set(
+      transfers.map((t) => utcDateToMoscowDateString(t.fromDate)),
+    ),
     dbFederalTransferDates,
-    defaultFederalTransferDates: new Set(EXTRA_NON_WORKING_DATES_BY_YEAR[year] ?? []),
+    defaultFederalTransferDates: new Set(
+      EXTRA_NON_WORKING_DATES_BY_YEAR[year] ?? [],
+    ),
   };
 }
 
@@ -135,7 +161,10 @@ export async function getWorkingDayCheckerForYear(
     if (data.transferToDates.has(moscowDateStr)) {
       return false;
     }
-    if (isStaticFederalHolidayMoscow(moscowDateStr).hit && !data.transferFromDates.has(moscowDateStr)) {
+    if (
+      isStaticFederalHolidayMoscow(moscowDateStr).hit &&
+      !data.transferFromDates.has(moscowDateStr)
+    ) {
       return false;
     }
     if (data.dbFederalTransferDates.has(moscowDateStr)) {
@@ -159,13 +188,22 @@ export async function getWorkingDayCheckerForYear(
   return checker;
 }
 
-export async function isWorkingDay(moscowDateStr: string, teamRegion?: string): Promise<boolean> {
-  const checker = await getWorkingDayCheckerForYear(parseYear(moscowDateStr), teamRegion);
+export async function isWorkingDay(
+  moscowDateStr: string,
+  teamRegion?: string,
+): Promise<boolean> {
+  const checker = await getWorkingDayCheckerForYear(
+    parseYear(moscowDateStr),
+    teamRegion,
+  );
   return checker(moscowDateStr);
 }
 
 /** Краткое объяснение, почему день нерабочий (когда `isWorkingDay` = false). */
-export async function explainWhyNonWorking(moscowDateStr: string, teamRegion?: string): Promise<string> {
+export async function explainWhyNonWorking(
+  moscowDateStr: string,
+  teamRegion?: string,
+): Promise<string> {
   const year = parseYear(moscowDateStr);
   const data = await loadCalendarDataForYear(year, teamRegion);
 
@@ -177,7 +215,9 @@ export async function explainWhyNonWorking(moscowDateStr: string, teamRegion?: s
   }
   const fed = isStaticFederalHolidayMoscow(moscowDateStr);
   if (fed.hit && !data.transferFromDates.has(moscowDateStr)) {
-    return fed.name ? `Федеральный праздник: ${fed.name}` : 'Федеральный праздник';
+    return fed.name
+      ? `Федеральный праздник: ${fed.name}`
+      : 'Федеральный праздник';
   }
   if (data.dbFederalTransferDates.has(moscowDateStr)) {
     return 'Нерабочий день (из календаря переносов)';
@@ -198,7 +238,9 @@ export async function explainWhyNonWorking(moscowDateStr: string, teamRegion?: s
   return 'Нерабочий день';
 }
 
-export function listFederalHolidayStringsForYear(year: number): { date: string; name: string }[] {
+export function listFederalHolidayStringsForYear(
+  year: number,
+): { date: string; name: string }[] {
   return FEDERAL_MD.map(({ month, day, name }) => ({
     date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
     name,
@@ -213,7 +255,13 @@ export async function listNonWorkingDaysForYear(
   year: number,
   teamRegion?: string,
 ): Promise<
-  { id: string | null; date: string; type: string; description?: string; region?: string }[]
+  {
+    id: string | null;
+    date: string;
+    type: string;
+    description?: string;
+    region?: string;
+  }[]
 > {
   const start = moscowDateStringToUtc(`${year}-01-01`);
   const end = moscowDateStringToUtc(`${year + 1}-01-01`);
@@ -224,13 +272,28 @@ export async function listNonWorkingDaysForYear(
     getWorkingDayCheckerForYear(year, teamRegion),
   ]);
 
-  const transferFromDates = new Set(transfers.map((t) => utcDateToMoscowDateString(t.fromDate)));
-  const transferToDates = new Set(transfers.map((t) => utcDateToMoscowDateString(t.toDate)));
-  const items: { id: string | null; date: string; type: string; description?: string; region?: string }[] = [];
+  const transferFromDates = new Set(
+    transfers.map((t) => utcDateToMoscowDateString(t.fromDate)),
+  );
+  const transferToDates = new Set(
+    transfers.map((t) => utcDateToMoscowDateString(t.toDate)),
+  );
+  const items: {
+    id: string | null;
+    date: string;
+    type: string;
+    description?: string;
+    region?: string;
+  }[] = [];
 
   for (const h of listFederalHolidayStringsForYear(year)) {
     if (!transferFromDates.has(h.date)) {
-      items.push({ id: null, date: h.date, type: 'federal', description: h.name });
+      items.push({
+        id: null,
+        date: h.date,
+        type: 'federal',
+        description: h.name,
+      });
     }
   }
 
@@ -276,7 +339,16 @@ export async function listNonWorkingDaysForYear(
     });
   }
 
-  const uniq = new Map<string, { id: string | null; date: string; type: string; description?: string; region?: string }>();
+  const uniq = new Map<
+    string,
+    {
+      id: string | null;
+      date: string;
+      type: string;
+      description?: string;
+      region?: string;
+    }
+  >();
   for (const item of items) {
     const key = `${item.date}|${item.type}|${item.region ?? ''}|${item.description ?? ''}`;
     if (!uniq.has(key)) {

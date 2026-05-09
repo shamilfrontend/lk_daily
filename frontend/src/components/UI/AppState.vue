@@ -15,7 +15,10 @@ withDefaults(
 </script>
 
 <template>
-  <div class="state-panel" :class="[`state-panel--${tone}`, { 'state-panel--compact': compact }]">
+  <div
+    class="state-panel"
+    :class="[`state-panel--${tone}`, { 'state-panel--compact': compact }]"
+  >
     <p class="state-panel__title">{{ title }}</p>
     <p v-if="description" class="state-panel__description">{{ description }}</p>
     <div v-if="$slots.actions" class="state-panel__actions">

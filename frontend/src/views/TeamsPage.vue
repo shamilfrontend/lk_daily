@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
+
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useTeamsStore } from '@/stores/teams';
-import type { Team } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+
+import type { Team } from '@/types/api';
 
 const teams = useTeamsStore();
 const auth = useAuthStore();
@@ -24,7 +26,12 @@ onMounted(() => {
   void teams.fetchTeams();
 });
 
-function startEdit(t: { _id: string; name: string; description?: string; region?: string }): void {
+function startEdit(t: {
+  _id: string;
+  name: string;
+  description?: string;
+  region?: string;
+}): void {
   editingId.value = t._id;
   name.value = t.name;
   description.value = t.description ?? '';
@@ -97,8 +104,13 @@ async function remove(): Promise<void> {
     <div v-if="auth.isSuperAdmin" class="card">
       <div class="card-heading">
         <div>
-          <h2 class="card-heading__title">{{ editingId ? 'Редактирование команды' : 'Новая команда' }}</h2>
-          <p class="card-heading__subtitle">Регион влияет на производственный календарь и региональные нерабочие дни.</p>
+          <h2 class="card-heading__title">
+            {{ editingId ? 'Редактирование команды' : 'Новая команда' }}
+          </h2>
+          <p class="card-heading__subtitle">
+            Регион влияет на производственный календарь и региональные нерабочие
+            дни.
+          </p>
         </div>
       </div>
 
@@ -111,7 +123,9 @@ async function remove(): Promise<void> {
 
         <div class="actions-row field-grid__full">
           <button class="btn btn--primary" type="submit">Сохранить</button>
-          <button v-if="editingId" type="button" class="btn" @click="resetForm">Отмена</button>
+          <button v-if="editingId" type="button" class="btn" @click="resetForm">
+            Отмена
+          </button>
         </div>
         <p v-if="error" class="error field-grid__full">{{ error }}</p>
       </form>
@@ -121,7 +135,10 @@ async function remove(): Promise<void> {
       <div class="card-heading">
         <div>
           <h2 class="card-heading__title">Список команд</h2>
-          <p class="card-heading__subtitle">Удаление деактивирует связанных участников, поэтому подтверждается отдельно.</p>
+          <p class="card-heading__subtitle">
+            Удаление деактивирует связанных участников, поэтому подтверждается
+            отдельно.
+          </p>
         </div>
       </div>
 
@@ -152,8 +169,16 @@ async function remove(): Promise<void> {
               <td>{{ t.region ?? '—' }}</td>
               <td>
                 <div v-if="auth.isSuperAdmin" class="actions-row">
-                  <button type="button" class="btn" @click="startEdit(t)">Изменить</button>
-                  <button type="button" class="btn btn--danger" @click="openRemoveModal(t)">Удалить</button>
+                  <button type="button" class="btn" @click="startEdit(t)">
+                    Изменить
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn--danger"
+                    @click="openRemoveModal(t)"
+                  >
+                    Удалить
+                  </button>
                 </div>
                 <span v-else class="teams-readonly">Просмотр</span>
               </td>

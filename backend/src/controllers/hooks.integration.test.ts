@@ -1,4 +1,12 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import type { Express } from 'express';
 import request from 'supertest';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
@@ -39,7 +47,11 @@ describe('hooks notify-today (integration)', () => {
 
     const team = await Team.create({ name: 'Hook Team' });
     teamId = team._id.toString();
-    const ua = await User.create({ teamId: team._id, fullName: 'Presenter', isActive: true });
+    const ua = await User.create({
+      teamId: team._id,
+      fullName: 'Presenter',
+      isActive: true,
+    });
     await QueueOrder.create({ teamId: team._id, userIds: [ua._id] });
 
     await Admin.create({
@@ -48,7 +60,10 @@ describe('hooks notify-today (integration)', () => {
     });
 
     fetchSpy.mockResolvedValue(
-      new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
     );
   });
 

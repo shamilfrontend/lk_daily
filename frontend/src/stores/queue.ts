@@ -1,17 +1,22 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+
 import { api } from '@/api/client';
+import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
+
 import type {
   CurrentPresenterResult,
   QueueInsightsToday,
   QueueSubstitutionRow,
   UpcomingRow,
 } from '@/types/api';
-import { getApiErrorMessage } from '@/utils/apiError';
-import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 export const useQueueStore = defineStore('queue', () => {
-  const current = ref<{ teamId: string; result: CurrentPresenterResult } | null>(null);
+  const current = ref<{
+    teamId: string;
+    result: CurrentPresenterResult;
+  } | null>(null);
   /** За текущую московскую дату для команды уже есть запись в логе выступлений */
   const alreadyRecordedToday = ref(false);
   const insightsToday = ref<QueueInsightsToday | null>(null);
@@ -32,15 +37,26 @@ export const useQueueStore = defineStore('queue', () => {
           insights: QueueInsightsToday;
           alreadyRecordedToday?: boolean;
         }>('/queue/current', { params: { teamId } }),
-        api.get<{ teamId: string; userIds: string[] }>('/queue/order', { params: { teamId } }),
-        api.get<{ teamId: string; days: number; rows: UpcomingRow[] }>('/queue/upcoming', {
-          params: { teamId, days: upcomingDays },
+        api.get<{ teamId: string; userIds: string[] }>('/queue/order', {
+          params: { teamId },
         }),
-        api.get<{ teamId: string; rows: QueueSubstitutionRow[] }>('/queue/substitutions', { params: { teamId } }),
+        api.get<{ teamId: string; days: number; rows: UpcomingRow[] }>(
+          '/queue/upcoming',
+          {
+            params: { teamId, days: upcomingDays },
+          },
+        ),
+        api.get<{ teamId: string; rows: QueueSubstitutionRow[] }>(
+          '/queue/substitutions',
+          { params: { teamId } },
+        ),
       ]);
       current.value = { teamId: c.data.teamId, result: c.data.result };
       alreadyRecordedToday.value = c.data.alreadyRecordedToday === true;
-      insightsToday.value = c.data.insights ?? { vacationUserIds: [], maternityUserIds: [] };
+      insightsToday.value = c.data.insights ?? {
+        vacationUserIds: [],
+        maternityUserIds: [],
+      };
       order.value = o.data.userIds;
       upcoming.value = u.data.rows;
       substitutions.value = s.data.rows;
@@ -67,10 +83,17 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  async function skip(teamId: string, options?: { rotate?: boolean }): Promise<void> {
+  async function skip(
+    teamId: string,
+    options?: { rotate?: boolean },
+  ): Promise<void> {
     loading.value = true;
     try {
-      await api.post('/queue/skip', { rotate: options?.rotate !== false }, { params: { teamId } });
+      await api.post(
+        '/queue/skip',
+        { rotate: options?.rotate !== false },
+        { params: { teamId } },
+      );
       await loadAll(teamId);
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось пропустить участника');
@@ -96,7 +119,10 @@ export const useQueueStore = defineStore('queue', () => {
 
   async function fetchSubstitutions(teamId: string): Promise<void> {
     try {
-      const { data } = await api.get<{ teamId: string; rows: QueueSubstitutionRow[] }>('/queue/substitutions', {
+      const { data } = await api.get<{
+        teamId: string;
+        rows: QueueSubstitutionRow[];
+      }>('/queue/substitutions', {
         params: { teamId },
       });
       substitutions.value = data.rows;
@@ -107,9 +133,17 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  async function saveSubstitution(teamId: string, moscowDate: string, substituteUserId: string): Promise<void> {
+  async function saveSubstitution(
+    teamId: string,
+    moscowDate: string,
+    substituteUserId: string,
+  ): Promise<void> {
     try {
-      await api.post('/queue/substitutions', { teamId, moscowDate, substituteUserId });
+      await api.post('/queue/substitutions', {
+        teamId,
+        moscowDate,
+        substituteUserId,
+      });
       await fetchSubstitutions(teamId);
       notifySuccess('Подмена на день сохранена');
     } catch (e) {
@@ -118,9 +152,14 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  async function deleteSubstitution(teamId: string, moscowDate: string): Promise<void> {
+  async function deleteSubstitution(
+    teamId: string,
+    moscowDate: string,
+  ): Promise<void> {
     try {
-      await api.delete('/queue/substitutions', { params: { teamId, moscowDate } });
+      await api.delete('/queue/substitutions', {
+        params: { teamId, moscowDate },
+      });
       await fetchSubstitutions(teamId);
       notifySuccess('Подмена удалена');
     } catch (e) {
@@ -129,9 +168,17 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  async function swapSubstitutionDays(teamId: string, moscowDateA: string, moscowDateB: string): Promise<void> {
+  async function swapSubstitutionDays(
+    teamId: string,
+    moscowDateA: string,
+    moscowDateB: string,
+  ): Promise<void> {
     try {
-      await api.post('/queue/substitutions/swap-days', { teamId, moscowDateA, moscowDateB });
+      await api.post('/queue/substitutions/swap-days', {
+        teamId,
+        moscowDateA,
+        moscowDateB,
+      });
       await loadAll(teamId);
       notifySuccess('Подмены между датами применены');
     } catch (e) {

@@ -20,7 +20,10 @@ function normalizeHolidayText(input: string): string {
 
 function isAntiBotPageTitle(title: string): boolean {
   const normalized = title.toLowerCase();
-  return normalized.includes('проверка безопасности') || normalized.includes('security check');
+  return (
+    normalized.includes('проверка безопасности') ||
+    normalized.includes('security check')
+  );
 }
 
 async function extractHolidayItemsFromPage(): Promise<string[]> {
@@ -55,10 +58,15 @@ async function extractHolidayItemsFromPage(): Promise<string[]> {
       }
 
       await page
-        .waitForFunction(() => {
-          const tokenInput = document.querySelector<HTMLInputElement>('input[name="s"]');
-          return Boolean(tokenInput?.value);
-        }, null, { timeout: 6000 })
+        .waitForFunction(
+          () => {
+            const tokenInput =
+              document.querySelector<HTMLInputElement>('input[name="s"]');
+            return Boolean(tokenInput?.value);
+          },
+          null,
+          { timeout: 6000 },
+        )
         .catch(() => undefined);
 
       const submitted = await page.evaluate(() => {
@@ -71,7 +79,9 @@ async function extractHolidayItemsFromPage(): Promise<string[]> {
       });
 
       if (submitted) {
-        await page.waitForLoadState('domcontentloaded', { timeout: NAVIGATION_TIMEOUT_MS });
+        await page.waitForLoadState('domcontentloaded', {
+          timeout: NAVIGATION_TIMEOUT_MS,
+        });
       } else {
         await page.waitForTimeout(1200);
         await page.reload({ waitUntil: 'domcontentloaded' });
@@ -80,12 +90,14 @@ async function extractHolidayItemsFromPage(): Promise<string[]> {
 
     await page.waitForSelector('.listing_wr', { timeout: LISTING_TIMEOUT_MS });
 
-    const itemPropTexts = await page.$$eval('.listing_wr [itemprop="text"]', (nodes) =>
-      nodes
-        .filter((node) => !node.closest('.listing_next'))
-        .map((node) => node.textContent ?? '')
-        .map((text) => text.replace(/\s+/g, ' ').trim())
-        .filter((text) => text.length > 0),
+    const itemPropTexts = await page.$$eval(
+      '.listing_wr [itemprop="text"]',
+      (nodes) =>
+        nodes
+          .filter((node) => !node.closest('.listing_next'))
+          .map((node) => node.textContent ?? '')
+          .map((text) => text.replace(/\s+/g, ' ').trim())
+          .filter((text) => text.length > 0),
     );
 
     if (itemPropTexts.length > 0) {
@@ -125,7 +137,10 @@ async function loadTodayHolidays(): Promise<ParsedHolidaysPayload> {
     try {
       const items = await extractHolidayItemsFromPage();
       if (items.length === 0) {
-        throw new HttpError(502, 'Не удалось извлечь список праздников из блока listing_wr');
+        throw new HttpError(
+          502,
+          'Не удалось извлечь список праздников из блока listing_wr',
+        );
       }
       return {
         items,
@@ -144,7 +159,10 @@ async function loadTodayHolidays(): Promise<ParsedHolidaysPayload> {
   );
 }
 
-export async function listTodayHolidays(_req: Request, res: Response): Promise<void> {
+export async function listTodayHolidays(
+  _req: Request,
+  res: Response,
+): Promise<void> {
   const payload = await loadTodayHolidays();
   res.json(payload);
 }

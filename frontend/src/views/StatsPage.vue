@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
-import type { TeamStatsResponse } from '@/types/api';
 import { useAppStore } from '@/stores/app';
 import { api } from '@/api/client';
 import { useTeamsStore } from '@/stores/teams';
 import { getApiErrorMessage } from '@/utils/apiError';
+
+import type { TeamStatsResponse } from '@/types/api';
 
 const teams = useTeamsStore();
 const app = useAppStore();
@@ -19,7 +21,9 @@ const stats = ref<TeamStatsResponse | null>(null);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-const selectedTeamName = computed(() => teams.teams.find((t) => t._id === teamId.value)?.name ?? '');
+const selectedTeamName = computed(
+  () => teams.teams.find((t) => t._id === teamId.value)?.name ?? '',
+);
 
 async function load(): Promise<void> {
   if (!teamId.value) {
@@ -84,10 +88,19 @@ watch([from, to], () => {
         </div>
         <div class="field">
           <label>&nbsp;</label>
-          <button type="button" class="btn" :disabled="loading || !teamId" @click="load">Обновить</button>
+          <button
+            type="button"
+            class="btn"
+            :disabled="loading || !teamId"
+            @click="load"
+          >
+            Обновить
+          </button>
         </div>
       </div>
-      <p v-if="teamId" class="stats-context">Контекст: {{ selectedTeamName }}</p>
+      <p v-if="teamId" class="stats-context">
+        Контекст: {{ selectedTeamName }}
+      </p>
     </div>
 
     <AppState
@@ -104,9 +117,16 @@ watch([from, to], () => {
       compact
     />
 
-    <AppState v-else-if="error" title="Ошибка" :description="error" tone="error">
+    <AppState
+      v-else-if="error"
+      title="Ошибка"
+      :description="error"
+      tone="error"
+    >
       <template #actions>
-        <button type="button" class="btn btn--primary" @click="load">Повторить</button>
+        <button type="button" class="btn btn--primary" @click="load">
+          Повторить
+        </button>
       </template>
     </AppState>
 

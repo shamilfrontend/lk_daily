@@ -33,5 +33,8 @@ export function utcDateToMoscowDateString(d: Date): string {
 /** День недели по календарной дате Москвы (длинное название, ru). */
 export function formatMoscowWeekdayLongRu(moscowYyyyMmDd: string): string {
   const inst = moscowDateStringToUtc(moscowYyyyMmDd);
-  return new Intl.DateTimeFormat('ru-RU', { weekday: 'long', timeZone: MOSCOW_TZ }).format(inst);
+  return new Intl.DateTimeFormat('ru-RU', {
+    weekday: 'long',
+    timeZone: MOSCOW_TZ,
+  }).format(inst);
 }

@@ -1,16 +1,21 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+
 import { api } from '@/api/client';
-import type { Vacation } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
+
+import type { Vacation } from '@/types/api';
 
 export const useVacationsStore = defineStore('vacations', () => {
   const vacations = ref<Vacation[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  async function fetchVacations(params: { userId?: string; teamId?: string }): Promise<void> {
+  async function fetchVacations(params: {
+    userId?: string;
+    teamId?: string;
+  }): Promise<void> {
     loading.value = true;
     error.value = null;
     try {
@@ -25,7 +30,11 @@ export const useVacationsStore = defineStore('vacations', () => {
     }
   }
 
-  async function createVacation(payload: { userId: string; startDate: string; endDate: string }): Promise<Vacation> {
+  async function createVacation(payload: {
+    userId: string;
+    startDate: string;
+    endDate: string;
+  }): Promise<Vacation> {
     try {
       const { data } = await api.post<Vacation>('/vacations', payload);
       notifySuccess('Период отпуска добавлен');
@@ -60,5 +69,13 @@ export const useVacationsStore = defineStore('vacations', () => {
     }
   }
 
-  return { vacations, loading, error, fetchVacations, createVacation, updateVacation, deleteVacation };
+  return {
+    vacations,
+    loading,
+    error,
+    fetchVacations,
+    createVacation,
+    updateVacation,
+    deleteVacation,
+  };
 });

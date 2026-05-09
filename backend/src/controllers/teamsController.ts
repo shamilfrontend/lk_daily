@@ -28,7 +28,11 @@ export async function listTeams(req: Request, res: Response): Promise<void> {
   }
   const filter =
     allowed && allowed.size > 0
-      ? { _id: { $in: [...allowed].map((id) => new mongoose.Types.ObjectId(id)) } }
+      ? {
+          _id: {
+            $in: [...allowed].map((id) => new mongoose.Types.ObjectId(id)),
+          },
+        }
       : {};
   const teams = await Team.find(filter).sort({ name: 1 }).lean();
   res.json(teams);
@@ -55,7 +59,9 @@ export async function updateTeam(req: Request, res: Response): Promise<void> {
   if (error) {
     throw new HttpError(400, error.message);
   }
-  const team = await Team.findByIdAndUpdate(req.params.id, value, { new: true });
+  const team = await Team.findByIdAndUpdate(req.params.id, value, {
+    new: true,
+  });
   if (!team) {
     throw new HttpError(404, 'Team not found');
   }
@@ -64,7 +70,7 @@ export async function updateTeam(req: Request, res: Response): Promise<void> {
 
 export async function deleteTeam(req: Request, res: Response): Promise<void> {
   assertSuperAdmin(req.auth);
-  const id = req.params.id;
+  const { id } = req.params;
   if (!mongoose.isValidObjectId(id)) {
     throw new HttpError(400, 'Invalid id');
   }

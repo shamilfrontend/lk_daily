@@ -6,12 +6,21 @@ import { HttpError } from '../middlewares/errorHandler.js';
 import { PresentationLog } from '../models/PresentationLog.js';
 import { User } from '../models/User.js';
 import { assertTeamAccess } from '../utils/authz.js';
-import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
+import {
+  parseMoscowDayInput,
+  utcDateToMoscowDateString,
+} from '../utils/dateHelpers.js';
 
 const statsQuerySchema = Joi.object({
   teamId: Joi.string().required(),
-  from: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
-  to: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
+  from: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .allow(''),
+  to: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .allow(''),
 });
 
 interface UserAggRow {
@@ -53,7 +62,10 @@ export async function getTeamStats(req: Request, res: Response): Promise<void> {
     filter.date = dateCond;
   }
 
-  const logs = await PresentationLog.find(filter).select('userId status date').sort({ date: -1 }).lean();
+  const logs = await PresentationLog.find(filter)
+    .select('userId status date')
+    .sort({ date: -1 })
+    .lean();
 
   let totalPresented = 0;
   let totalSkipped = 0;
@@ -88,10 +100,18 @@ export async function getTeamStats(req: Request, res: Response): Promise<void> {
     }
   }
 
-  const userIds = [...byUser.keys()].map((id) => new mongoose.Types.ObjectId(id));
+  const userIds = [...byUser.keys()].map(
+    (id) => new mongoose.Types.ObjectId(id),
+  );
   const userDocs =
-    userIds.length > 0 ? await User.find({ _id: { $in: userIds } }).select('fullName').lean() : [];
-  const nameById = new Map(userDocs.map((u) => [u._id.toString(), u.fullName ?? '']));
+    userIds.length > 0
+      ? await User.find({ _id: { $in: userIds } })
+          .select('fullName')
+          .lean()
+      : [];
+  const nameById = new Map(
+    userDocs.map((u) => [u._id.toString(), u.fullName ?? '']),
+  );
 
   const usersOut: UserAggRow[] = [...byUser.entries()].map(([userId, agg]) => ({
     userId,
@@ -106,7 +126,11 @@ export async function getTeamStats(req: Request, res: Response): Promise<void> {
     teamId,
     from: from ?? null,
     to: to ?? null,
-    totals: { presented: totalPresented, skipped: totalSkipped, records: logs.length },
+    totals: {
+      presented: totalPresented,
+      skipped: totalSkipped,
+      records: logs.length,
+    },
     users: usersOut,
   });
 }

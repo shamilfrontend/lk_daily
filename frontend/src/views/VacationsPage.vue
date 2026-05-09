@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { VueDatePicker } from '@vuepic/vue-datepicker';
+
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -27,7 +28,10 @@ const confirmOpen = ref(false);
 const confirmLoading = ref(false);
 const pendingRemovalId = ref<string | null>(null);
 
-const selectedUserName = computed(() => users.users.find((user) => user._id === filterUserId.value)?.fullName ?? '');
+const selectedUserName = computed(
+  () =>
+    users.users.find((user) => user._id === filterUserId.value)?.fullName ?? '',
+);
 
 function toYmd(date: Date): string {
   const year = date.getFullYear();
@@ -50,11 +54,13 @@ watch(filterTeamId, async (id) => {
     try {
       await users.fetchUsers(id, true);
       const q = route.query.userId;
-      const fromQuery = typeof q === 'string' && users.users.some((u) => u._id === q);
+      const fromQuery =
+        typeof q === 'string' && users.users.some((u) => u._id === q);
       filterUserId.value = fromQuery ? String(q) : (users.users[0]?._id ?? '');
       await loadVacations();
     } catch (e) {
-      error.value = users.error ?? getApiErrorMessage(e, 'Не удалось загрузить участников');
+      error.value =
+        users.error ?? getApiErrorMessage(e, 'Не удалось загрузить участников');
     }
   }
 });
@@ -79,15 +85,23 @@ async function loadVacations(): Promise<void> {
   try {
     await vacations.fetchVacations({ userId: filterUserId.value });
   } catch (e) {
-    error.value = vacations.error ?? getApiErrorMessage(e, 'Не удалось загрузить отпуска');
+    error.value =
+      vacations.error ?? getApiErrorMessage(e, 'Не удалось загрузить отпуска');
   }
 }
 
-function startEdit(v: { _id: string; startDate: string; endDate: string }): void {
+function startEdit(v: {
+  _id: string;
+  startDate: string;
+  endDate: string;
+}): void {
   editingId.value = v._id;
   startDate.value = v.startDate.slice(0, 10);
   endDate.value = v.endDate.slice(0, 10);
-  selectedRange.value = [parseLocalDate(startDate.value), parseLocalDate(endDate.value)];
+  selectedRange.value = [
+    parseLocalDate(startDate.value),
+    parseLocalDate(endDate.value),
+  ];
 }
 
 function resetForm(): void {
@@ -170,7 +184,9 @@ async function remove(): Promise<void> {
           <label for="fu">Участник</label>
           <select id="fu" v-model="filterUserId" class="select">
             <option value="" disabled>Выберите участника</option>
-            <option v-for="u in users.users" :key="u._id" :value="u._id">{{ u.fullName }}</option>
+            <option v-for="u in users.users" :key="u._id" :value="u._id">
+              {{ u.fullName }}
+            </option>
           </select>
         </div>
       </div>
@@ -187,9 +203,12 @@ async function remove(): Promise<void> {
       <div class="card">
         <div class="card-heading">
           <div>
-            <h2 class="card-heading__title">{{ editingId ? 'Редактирование периода' : 'Новый период' }}</h2>
+            <h2 class="card-heading__title">
+              {{ editingId ? 'Редактирование периода' : 'Новый период' }}
+            </h2>
             <p class="card-heading__subtitle">
-              {{ selectedUserName || 'Сначала выбери участника' }}. Диапазон сохраняется по локальной дате без сдвига timezone.
+              {{ selectedUserName || 'Сначала выбери участника' }}. Диапазон
+              сохраняется по локальной дате без сдвига timezone.
             </p>
           </div>
         </div>
@@ -203,13 +222,20 @@ async function remove(): Promise<void> {
             locale="ru"
             format="yyyy-MM-dd"
             :enable-time-picker="false"
-            :clearable="true"
+						clearable
             @update:model-value="onRangeChange"
           />
 
           <div class="actions-row field-grid__full">
             <button class="btn btn--primary" type="submit">Сохранить</button>
-            <button v-if="editingId" type="button" class="btn" @click="resetForm">Отмена</button>
+            <button
+              v-if="editingId"
+              type="button"
+              class="btn"
+              @click="resetForm"
+            >
+              Отмена
+            </button>
           </div>
           <p v-if="error" class="error field-grid__full">{{ error }}</p>
         </form>
@@ -219,7 +245,9 @@ async function remove(): Promise<void> {
         <div class="card-heading">
           <div>
             <h2 class="card-heading__title">Периоды</h2>
-            <p class="card-heading__subtitle">Все сохранённые периоды по выбранному участнику.</p>
+            <p class="card-heading__subtitle">
+              Все сохранённые периоды по выбранному участнику.
+            </p>
           </div>
         </div>
 
@@ -250,8 +278,16 @@ async function remove(): Promise<void> {
                 <td>{{ v.endDate.slice(0, 10) }}</td>
                 <td>
                   <div class="actions-row">
-                    <button type="button" class="btn" @click="startEdit(v)">Изменить</button>
-                    <button type="button" class="btn btn--danger" @click="openRemoveModal(v._id)">Удалить</button>
+                    <button type="button" class="btn" @click="startEdit(v)">
+                      Изменить
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn--danger"
+                      @click="openRemoveModal(v._id)"
+                    >
+                      Удалить
+                    </button>
                   </div>
                 </td>
               </tr>

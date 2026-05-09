@@ -4,7 +4,10 @@ import mongoose from 'mongoose';
 import { HttpError } from '../middlewares/errorHandler.js';
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
-import { appendUserToQueueEnd, removeUserFromQueue } from '../services/queueService.js';
+import {
+  appendUserToQueueEnd,
+  removeUserFromQueue,
+} from '../services/queueService.js';
 import { allowedTeamIdSet, assertTeamAccess } from '../utils/authz.js';
 
 const createBody = Joi.object({
@@ -23,7 +26,9 @@ const updateBody = Joi.object({
   birthday: Joi.string().isoDate().allow(null, ''),
 }).min(1);
 
-function parseBirthdayInput(value: string | null | undefined): Date | undefined {
+function parseBirthdayInput(
+  value: string | null | undefined,
+): Date | undefined {
   if (value == null || value === '') {
     return undefined;
   }
@@ -122,9 +127,11 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   }
   if (value.fullName !== undefined) user.fullName = value.fullName;
   if (value.isActive !== undefined) user.isActive = value.isActive;
-  if (value.onMaternityLeave !== undefined) user.onMaternityLeave = value.onMaternityLeave;
+  if (value.onMaternityLeave !== undefined)
+    user.onMaternityLeave = value.onMaternityLeave;
   if (value.birthday !== undefined) {
-    user.birthday = parseBirthdayInput(value.birthday as string | null) ?? undefined;
+    user.birthday =
+      parseBirthdayInput(value.birthday as string | null) ?? undefined;
   }
 
   await user.save();

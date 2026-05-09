@@ -33,8 +33,13 @@ function buildUpcomingBirthdayDate(
   const thisYear = todayUtc.getUTCFullYear();
 
   const thisYearBirthday = new Date(Date.UTC(thisYear, month, day));
-  const targetDate = thisYearBirthday < todayUtc ? new Date(Date.UTC(thisYear + 1, month, day)) : thisYearBirthday;
-  const daysLeft = Math.round((targetDate.getTime() - todayUtc.getTime()) / DAY_MS);
+  const targetDate =
+    thisYearBirthday < todayUtc
+      ? new Date(Date.UTC(thisYear + 1, month, day))
+      : thisYearBirthday;
+  const daysLeft = Math.round(
+    (targetDate.getTime() - todayUtc.getTime()) / DAY_MS,
+  );
 
   if (daysLeft < 0 || daysLeft > UPCOMING_BIRTHDAY_DAYS) {
     return null;
@@ -58,7 +63,9 @@ export function useHomePage() {
   const today = moscowTodayString();
   const todayUtcDate = new Date(`${today}T00:00:00.000Z`);
 
-  const currentTeam = computed(() => teams.teams.find((team) => team._id === app.selectedTeamId) ?? null);
+  const currentTeam = computed(
+    () => teams.teams.find((team) => team._id === app.selectedTeamId) ?? null,
+  );
 
   const userMap = computed(() => {
     const map = new Map<string, string>();
@@ -68,14 +75,20 @@ export function useHomePage() {
     return map;
   });
 
-  const onVacationToday = computed(() => new Set(queue.insightsToday?.vacationUserIds ?? []));
-  const onMaternityLeaveIds = computed(() => new Set(queue.insightsToday?.maternityUserIds ?? []));
+  const onVacationToday = computed(
+    () => new Set(queue.insightsToday?.vacationUserIds ?? []),
+  );
+  const onMaternityLeaveIds = computed(
+    () => new Set(queue.insightsToday?.maternityUserIds ?? []),
+  );
 
   const headline = computed(() => {
     const result = queue.current?.result;
     if (!result) return 'Загрузка…';
-    if (result.kind === 'non_working') return 'Сегодня нерабочий день, созвона нет';
-    if (result.kind === 'no_queue' || result.kind === 'no_available') return NO_AVAILABLE_PRESENTERS;
+    if (result.kind === 'non_working')
+      return 'Сегодня нерабочий день, созвона нет';
+    if (result.kind === 'no_queue' || result.kind === 'no_available')
+      return NO_AVAILABLE_PRESENTERS;
     return result.user.fullName;
   });
 
@@ -95,7 +108,9 @@ export function useHomePage() {
   const alreadyRecordedHint = computed(() => {
     if (!auth.isAdmin) return false;
     const result = queue.current?.result;
-    return Boolean(result && result.kind === 'ok' && queue.alreadyRecordedToday);
+    return Boolean(
+      result && result.kind === 'ok' && queue.alreadyRecordedToday,
+    );
   });
 
   const queueSize = computed(() => queue.order.length);
@@ -121,7 +136,9 @@ export function useHomePage() {
   });
 
   const todayBirthdayNames = computed(() =>
-    upcomingBirthdays.value.filter((item) => item.daysLeft === 0).map((item) => item.fullName),
+    upcomingBirthdays.value
+      .filter((item) => item.daysLeft === 0)
+      .map((item) => item.fullName),
   );
 
   const upcomingBirthdaysNextMonth = computed(() =>
@@ -152,7 +169,9 @@ export function useHomePage() {
       ]);
     } catch (error: unknown) {
       pageError.value =
-        queue.error ?? users.error ?? getApiErrorMessage(error, 'Не удалось обновить главную страницу');
+        queue.error ??
+        users.error ??
+        getApiErrorMessage(error, 'Не удалось обновить главную страницу');
     }
   }
 
@@ -173,7 +192,10 @@ export function useHomePage() {
       await queue.present(teamId);
       notifySuccess('Выступление отмечено');
     } catch (error: unknown) {
-      actionError.value = getApiErrorMessage(error, 'Не удалось отметить выступление');
+      actionError.value = getApiErrorMessage(
+        error,
+        'Не удалось отметить выступление',
+      );
     }
   }
 
@@ -186,7 +208,10 @@ export function useHomePage() {
       await queue.skip(teamId, { rotate: !skipWithoutRotation.value });
       notifySuccess('Участник пропущен');
     } catch (error: unknown) {
-      actionError.value = getApiErrorMessage(error, 'Не удалось пропустить участника');
+      actionError.value = getApiErrorMessage(
+        error,
+        'Не удалось пропустить участника',
+      );
     }
   }
 

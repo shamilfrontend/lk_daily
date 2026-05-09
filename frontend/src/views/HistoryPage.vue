@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+
 import { api } from '@/api/client';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
-import type { HistoryRow, Team, User } from '@/types/api';
 import { useTeamsStore } from '@/stores/teams';
 import { getApiErrorMessage } from '@/utils/apiError';
+
+import type { HistoryRow, Team, User } from '@/types/api';
 
 const teams = useTeamsStore();
 
@@ -65,19 +67,21 @@ async function load(reset = true): Promise<void> {
   error.value = null;
   try {
     const nextPage = reset ? 1 : page.value + 1;
-    const { data } = await api.get<{ rows: HistoryRow[]; total: number; page: number; limit: number }>(
-      '/history',
-      {
-        params: {
-          teamId: filterTeamId.value || undefined,
-          from: from.value || undefined,
-          to: to.value || undefined,
-          status: status.value || undefined,
-          page: nextPage,
-          limit,
-        },
+    const { data } = await api.get<{
+      rows: HistoryRow[];
+      total: number;
+      page: number;
+      limit: number;
+    }>('/history', {
+      params: {
+        teamId: filterTeamId.value || undefined,
+        from: from.value || undefined,
+        to: to.value || undefined,
+        status: status.value || undefined,
+        page: nextPage,
+        limit,
       },
-    );
+    });
     total.value = data.total;
     page.value = data.page;
     rows.value = reset ? data.rows : [...rows.value, ...data.rows];
@@ -133,7 +137,13 @@ onBeforeUnmount(() => {
           <label for="ft">Команда</label>
           <select id="ft" v-model="filterTeamId" class="select">
             <option value="">Все</option>
-            <option v-for="team in teams.teams" :key="team._id" :value="team._id">{{ team.name }}</option>
+            <option
+              v-for="team in teams.teams"
+              :key="team._id"
+              :value="team._id"
+            >
+              {{ team.name }}
+            </option>
           </select>
         </div>
 
@@ -205,7 +215,12 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
         <div v-if="hasMore" class="history-more">
-          <button type="button" class="btn" :disabled="loadingMore" @click="loadMore">
+          <button
+            type="button"
+            class="btn"
+            :disabled="loadingMore"
+            @click="loadMore"
+          >
             {{ loadingMore ? 'Загрузка…' : 'Загрузить ещё' }}
           </button>
         </div>

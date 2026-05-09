@@ -9,7 +9,10 @@ import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';
 import { QueueOrder } from '../models/QueueOrder.js';
 import { replaceQueueOrder } from '../services/queueService.js';
-import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
+import {
+  parseMoscowDayInput,
+  utcDateToMoscowDateString,
+} from '../utils/dateHelpers.js';
 import { logger } from '../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -38,7 +41,10 @@ interface SeedData {
   teams: SeedTeam[];
 }
 
-function parseArgs(argv: string[]): { force: boolean; dataPath: string | undefined } {
+function parseArgs(argv: string[]): {
+  force: boolean;
+  dataPath: string | undefined;
+} {
   let force = false;
   const positional: string[] = [];
   for (const a of argv) {
@@ -57,7 +63,7 @@ function loadSeedData(filePath: string): SeedData {
   if (!data || typeof data !== 'object' || !('teams' in data)) {
     throw new Error('Invalid seed file: expected { teams: [...] }');
   }
-  const teams = (data as { teams: unknown }).teams;
+  const { teams } = data as { teams: unknown };
   if (!Array.isArray(teams)) {
     throw new Error('Invalid seed file: teams must be an array');
   }
@@ -70,7 +76,9 @@ function loadSeedData(filePath: string): SeedData {
       throw new Error('Invalid seed file: team.name is required');
     }
     if (!Array.isArray(team.members)) {
-      throw new Error(`Invalid seed file: team "${team.name}" must have members array`);
+      throw new Error(
+        `Invalid seed file: team "${team.name}" must have members array`,
+      );
     }
     for (const m of team.members) {
       if (!m || typeof m !== 'object') {
@@ -80,11 +88,18 @@ function loadSeedData(filePath: string): SeedData {
       if (typeof mem.name !== 'string' || !mem.name.trim()) {
         throw new Error('Invalid seed file: member.name is required');
       }
-      if (mem.onMaternityLeave !== undefined && typeof mem.onMaternityLeave !== 'boolean') {
-        throw new Error(`Invalid seed file: member "${mem.name}" onMaternityLeave must be a boolean`);
+      if (
+        mem.onMaternityLeave !== undefined &&
+        typeof mem.onMaternityLeave !== 'boolean'
+      ) {
+        throw new Error(
+          `Invalid seed file: member "${mem.name}" onMaternityLeave must be a boolean`,
+        );
       }
       if (!Array.isArray(mem.vacations)) {
-        throw new Error(`Invalid seed file: member "${mem.name}" vacations must be an array`);
+        throw new Error(
+          `Invalid seed file: member "${mem.name}" vacations must be an array`,
+        );
       }
       for (const v of mem.vacations) {
         if (!v || typeof v !== 'object') {
@@ -92,7 +107,9 @@ function loadSeedData(filePath: string): SeedData {
         }
         const vac = v as Record<string, unknown>;
         if (typeof vac.start !== 'string' || typeof vac.end !== 'string') {
-          throw new Error('Invalid seed file: vacation start/end must be strings YYYY-MM-DD');
+          throw new Error(
+            'Invalid seed file: vacation start/end must be strings YYYY-MM-DD',
+          );
         }
       }
     }
@@ -106,7 +123,9 @@ async function wipeTeamRelatedCollections(): Promise<void> {
   await QueueOrder.deleteMany({});
   await User.deleteMany({});
   await Team.deleteMany({});
-  logger.info('Cleared Team, User, Vacation, QueueOrder, PresentationLog (Admin unchanged)');
+  logger.info(
+    'Cleared Team, User, Vacation, QueueOrder, PresentationLog (Admin unchanged)',
+  );
 }
 
 async function seedFromData(data: SeedData): Promise<void> {
@@ -126,8 +145,13 @@ async function seedFromData(data: SeedData): Promise<void> {
       for (const vac of m.vacations) {
         const startDate = parseMoscowDayInput(vac.start);
         const endDate = parseMoscowDayInput(vac.end);
-        if (utcDateToMoscowDateString(startDate) > utcDateToMoscowDateString(endDate)) {
-          throw new Error(`Vacation range invalid for ${m.name}: ${vac.start} > ${vac.end}`);
+        if (
+          utcDateToMoscowDateString(startDate) >
+          utcDateToMoscowDateString(endDate)
+        ) {
+          throw new Error(
+            `Vacation range invalid for ${m.name}: ${vac.start} > ${vac.end}`,
+          );
         }
         await Vacation.create({
           userId: user._id,
@@ -151,7 +175,9 @@ async function main(): Promise<void> {
 
   try {
     if (!force && (await Team.countDocuments()) > 0) {
-      logger.info('Database already has teams; skip seed (use --force to replace team-related data)');
+      logger.info(
+        'Database already has teams; skip seed (use --force to replace team-related data)',
+      );
       return;
     }
 

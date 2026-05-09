@@ -42,7 +42,12 @@ const {
       "
     >
       <template #actions>
-        <button type="button" class="btn" :disabled="!canRefresh" @click="refresh">
+        <button
+          type="button"
+          class="btn"
+          :disabled="!canRefresh"
+          @click="refresh"
+        >
           Обновить данные
         </button>
       </template>
@@ -59,7 +64,9 @@ const {
       <div class="metric-grid">
         <div class="metric-card">
           <p class="metric-card__label">Команда</p>
-          <p class="metric-card__value">{{ currentTeam?.name ?? 'Не выбрана' }}</p>
+          <p class="metric-card__value">
+            {{ currentTeam?.name ?? 'Не выбрана' }}
+          </p>
         </div>
         <div class="metric-card">
           <p class="metric-card__label">Участников в очереди</p>
@@ -78,7 +85,9 @@ const {
         tone="error"
       >
         <template #actions>
-          <button type="button" class="btn btn--primary" @click="refresh">Повторить</button>
+          <button type="button" class="btn btn--primary" @click="refresh">
+            Повторить
+          </button>
         </template>
       </AppState>
 
@@ -87,22 +96,51 @@ const {
           <div class="card hero-card">
             <p class="hero-card__label">Сегодня показывает</p>
             <p class="hero-card__title">{{ headline }}</p>
-            <p v-if="nonWorkingReason" class="hero-card__reason">{{ nonWorkingReason }}</p>
-            <p v-if="substitutionHint" class="hero-card__reason hero-card__reason--muted">{{ substitutionHint }}</p>
+            <p v-if="nonWorkingReason" class="hero-card__reason">
+              {{ nonWorkingReason }}
+            </p>
+            <p
+              v-if="substitutionHint"
+              class="hero-card__reason hero-card__reason--muted"
+            >
+              {{ substitutionHint }}
+            </p>
             <p v-if="actionError" class="error">{{ actionError }}</p>
-            <p v-if="alreadyRecordedHint" class="hero-card__reason hero-card__reason--muted">
+            <p
+              v-if="alreadyRecordedHint"
+              class="hero-card__reason hero-card__reason--muted"
+            >
               За сегодня для этой команды отметка уже сделана.
             </p>
             <div v-if="auth.isAdmin" class="actions-column">
-              <label class="skip-rotate-label" :class="{ 'skip-rotate-label--disabled': !canAdminAction }">
-                <input v-model="skipWithoutRotation" type="checkbox" :disabled="!canAdminAction" />
+              <label
+                class="skip-rotate-label"
+                :class="{ 'skip-rotate-label--disabled': !canAdminAction }"
+              >
+                <input
+                  v-model="skipWithoutRotation"
+                  type="checkbox"
+                  :disabled="!canAdminAction"
+                />
                 Пропуск без сдвига очереди
               </label>
               <div class="actions-row">
-                <button type="button" class="btn btn--primary" :disabled="!canAdminAction" @click="onPresent">
+                <button
+                  type="button"
+                  class="btn btn--primary"
+                  :disabled="!canAdminAction"
+                  @click="onPresent"
+                >
                   Выступил
                 </button>
-                <button type="button" class="btn" :disabled="!canAdminAction" @click="onSkip">Пропустить</button>
+                <button
+                  type="button"
+                  class="btn"
+                  :disabled="!canAdminAction"
+                  @click="onSkip"
+                >
+                  Пропустить
+                </button>
               </div>
             </div>
             <AppState
@@ -120,7 +158,11 @@ const {
               </div>
             </div>
 
-            <p v-for="fullName in todayBirthdayNames" :key="fullName" class="hero-card__reason birthday-today-text">
+            <p
+              v-for="fullName in todayBirthdayNames"
+              :key="fullName"
+              class="hero-card__reason birthday-today-text"
+            >
               Сегодня день рождения у {{ fullName }}
             </p>
 
@@ -131,11 +173,18 @@ const {
               compact
               tone="empty"
             />
-            <p v-else-if="upcomingBirthdaysNextMonth.length === 0" class="hero-card__reason hero-card__reason--muted">
+            <p
+              v-else-if="upcomingBirthdaysNextMonth.length === 0"
+              class="hero-card__reason hero-card__reason--muted"
+            >
               В ближайшие 30 дней дней рождения нет.
             </p>
             <ul v-else class="birthday-list">
-              <li v-for="item in upcomingBirthdaysNextMonth" :key="item.userId" class="birthday-list__item">
+              <li
+                v-for="item in upcomingBirthdaysNextMonth"
+                :key="item.userId"
+                class="birthday-list__item"
+              >
                 <span>{{ item.fullName }}</span>
                 <span class="badge">{{ item.dayMonth }}</span>
               </li>
@@ -147,7 +196,9 @@ const {
           <div class="card-heading">
             <div>
               <h2 class="card-heading__title">Текущая очередь</h2>
-              <p class="card-heading__subtitle">Отмечаем отпуск и декрет прямо в списке.</p>
+              <p class="card-heading__subtitle">
+                Отмечаем отпуск и декрет прямо в списке.
+              </p>
             </div>
           </div>
 
@@ -170,14 +221,17 @@ const {
                 <p class="queue__name">{{ userMap.get(id) ?? id }}</p>
               </div>
               <div class="queue__badges">
-                <span v-if="onVacationToday.has(id)" class="badge">в отпуске</span>
-                <span v-if="onMaternityLeaveIds.has(id)" class="badge">в декрете</span>
+                <span v-if="onVacationToday.has(id)" class="badge"
+                  >в отпуске</span
+                >
+                <span v-if="onMaternityLeaveIds.has(id)" class="badge"
+                  >в декрете</span
+                >
               </div>
             </li>
           </ol>
         </div>
       </div>
-
     </template>
   </section>
 </template>
@@ -209,7 +263,11 @@ const {
   display: grid;
   gap: var(--space-3);
   align-content: start;
-  background: linear-gradient(135deg, rgba(13, 148, 136, 0.08), rgba(255, 255, 255, 0.98));
+  background: linear-gradient(
+    135deg,
+    rgba(13, 148, 136, 0.08),
+    rgba(255, 255, 255, 0.98)
+  );
 }
 
 .hero-card__label,

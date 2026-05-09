@@ -1,16 +1,19 @@
 import { createRouter, createWebHistory } from 'vue-router';
+
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 
 const router = createRouter({
   history: createWebHistory(),
+
   routes: [
     {
       path: '/',
       name: 'home',
       meta: {
         pageTitle: 'Сегодня',
-        pageDescription: 'Кто показывает сегодня, как выглядит очередь и что будет в ближайшие рабочие дни.',
+        pageDescription:
+          'Кто показывает сегодня, как выглядит очередь и что будет в ближайшие рабочие дни.',
       },
       component: () => import('@/views/HomePage.vue'),
     },
@@ -29,7 +32,8 @@ const router = createRouter({
       name: 'today-holiday',
       meta: {
         pageTitle: 'Какой сегодня праздник?',
-        pageDescription: 'Список праздников на текущий день из внешнего источника.',
+        pageDescription:
+          'Список праздников на текущий день из внешнего источника.',
       },
       component: () => import('@/views/TodayHolidayPage.vue'),
     },
@@ -39,7 +43,8 @@ const router = createRouter({
       meta: {
         requiresAdmin: true,
         pageTitle: 'Команды',
-        pageDescription: 'Управление командами, описанием и региональными настройками.',
+        pageDescription:
+          'Управление командами, описанием и региональными настройками.',
       },
       component: () => import('@/views/TeamsPage.vue'),
     },
@@ -49,7 +54,8 @@ const router = createRouter({
       meta: {
         requiresAdmin: true,
         pageTitle: 'Участники',
-        pageDescription: 'Управление составом команд, активностью и статусом декрета.',
+        pageDescription:
+          'Управление составом команд, активностью и статусом декрета.',
       },
       component: () => import('@/views/UsersPage.vue'),
     },
@@ -59,7 +65,8 @@ const router = createRouter({
       meta: {
         requiresAdmin: true,
         pageTitle: 'Отпуска',
-        pageDescription: 'Планирование периодов отсутствия участников с учетом выбранной команды.',
+        pageDescription:
+          'Планирование периодов отсутствия участников с учетом выбранной команды.',
       },
       component: () => import('@/views/VacationsPage.vue'),
     },
@@ -68,7 +75,8 @@ const router = createRouter({
       name: 'holidays',
       meta: {
         pageTitle: 'Нерабочие дни',
-        pageDescription: 'Производственный календарь, переносы и региональные даты по выбранной команде.',
+        pageDescription:
+          'Производственный календарь, переносы и региональные даты по выбранной команде.',
       },
       component: () => import('@/views/NonWorkingDaysPage.vue'),
     },
@@ -78,7 +86,8 @@ const router = createRouter({
       meta: {
         requiresAdmin: true,
         pageTitle: 'Очередь',
-        pageDescription: 'Настройка порядка докладчиков и быстрые действия по управлению списком.',
+        pageDescription:
+          'Настройка порядка докладчиков и быстрые действия по управлению списком.',
       },
       component: () => import('@/views/QueueOrderPage.vue'),
     },
@@ -97,11 +106,17 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
+
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     const ui = useUiStore();
     ui.requestAdminLogin(to.fullPath);
-    return { name: 'home', replace: true };
+
+    return {
+      name: 'home',
+      replace: true,
+    };
   }
+
   return true;
 });
 

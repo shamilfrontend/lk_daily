@@ -26,25 +26,51 @@ function logout(): void {
 </script>
 
 <template>
-  <aside id="app-sidebar" class="sidebar" :class="{ 'sidebar--mobile-open': mobileOpen }" aria-label="Навигация и настройки">
+  <aside
+    id="app-sidebar"
+    class="sidebar"
+    :class="{ 'sidebar--mobile-open': mobileOpen }"
+    aria-label="Навигация и настройки"
+  >
     <div class="sidebar__head">
-      <RouterLink class="sidebar__brand" to="/" @click="emit('navigate')">LK Daily</RouterLink>
-      <button type="button" class="sidebar__close" aria-label="Закрыть меню" @click="emit('navigate')">×</button>
+      <RouterLink class="sidebar__brand" to="/" @click="emit('navigate')"
+        >LK Daily</RouterLink
+      >
+      <button
+        type="button"
+        class="sidebar__close"
+        aria-label="Закрыть меню"
+        @click="emit('navigate')"
+      >
+        ×
+      </button>
     </div>
 
-    <p class="sidebar__summary">Быстрый доступ к ключевым сценариям, журналу и административным разделам.</p>
+    <p class="sidebar__summary">
+      Быстрый доступ к ключевым сценариям, журналу и административным разделам.
+    </p>
 
     <div v-if="auth.verifyError" class="sidebar__verify-error" role="alert">
       {{ auth.verifyError }}
     </div>
 
     <nav class="sidebar__nav">
-      <RouterLink class="sidebar__link" to="/" @click="emit('navigate')">Сегодня</RouterLink>
-      <RouterLink class="sidebar__link" to="/today-holiday" @click="emit('navigate')">
+      <RouterLink class="sidebar__link" to="/" @click="emit('navigate')"
+        >Сегодня</RouterLink
+      >
+      <RouterLink
+        class="sidebar__link"
+        to="/today-holiday"
+        @click="emit('navigate')"
+      >
         Какой сегодня праздник?
       </RouterLink>
-      <RouterLink class="sidebar__link" to="/holidays" @click="emit('navigate')">Нерабочие дни</RouterLink>
-      <RouterLink class="sidebar__link" to="/history" @click="emit('navigate')">История</RouterLink>
+      <RouterLink class="sidebar__link" to="/holidays" @click="emit('navigate')"
+        >Нерабочие дни</RouterLink
+      >
+      <RouterLink class="sidebar__link" to="/history" @click="emit('navigate')"
+        >История</RouterLink
+      >
 
       <template v-if="auth.isAdmin">
         <p class="sidebar__section">Администрирование</p>
@@ -56,20 +82,46 @@ function logout(): void {
         >
           Управление командами
         </RouterLink>
-        <RouterLink class="sidebar__link" to="/admin/users" @click="emit('navigate')">Участники</RouterLink>
-        <RouterLink class="sidebar__link" to="/admin/vacations" @click="emit('navigate')">Отпуска</RouterLink>
-        <RouterLink class="sidebar__link" to="/admin/queue" @click="emit('navigate')">Настройка очереди</RouterLink>
-        <RouterLink class="sidebar__link" to="/admin/stats" @click="emit('navigate')">Статистика</RouterLink>
+        <RouterLink
+          class="sidebar__link"
+          to="/admin/users"
+          @click="emit('navigate')"
+          >Участники</RouterLink
+        >
+        <RouterLink
+          class="sidebar__link"
+          to="/admin/vacations"
+          @click="emit('navigate')"
+          >Отпуска</RouterLink
+        >
+        <RouterLink
+          class="sidebar__link"
+          to="/admin/queue"
+          @click="emit('navigate')"
+          >Настройка очереди</RouterLink
+        >
+        <RouterLink
+          class="sidebar__link"
+          to="/admin/stats"
+          @click="emit('navigate')"
+          >Статистика</RouterLink
+        >
       </template>
     </nav>
 
     <div class="sidebar__footer">
       <template v-if="auth.isAdmin">
         <span class="sidebar__user">{{ auth.loginName ?? 'admin' }}</span>
-        <button type="button" class="btn sidebar__logout" @click="logout">Выйти</button>
+        <button type="button" class="btn sidebar__logout" @click="logout">
+          Выйти
+        </button>
       </template>
       <template v-else>
-        <button type="button" class="btn btn--primary sidebar__login" @click="ui.openLoginModal()">
+        <button
+          type="button"
+          class="btn btn--primary sidebar__login"
+          @click="ui.openLoginModal()"
+        >
           Вход
         </button>
       </template>
@@ -196,7 +248,11 @@ function logout(): void {
 
 .sidebar__link.router-link-active {
   color: var(--sidebar-text);
-  background: linear-gradient(180deg, rgba(13, 148, 136, 0.2), rgba(20, 184, 166, 0.12));
+  background: linear-gradient(
+    180deg,
+    rgba(13, 148, 136, 0.2),
+    rgba(20, 184, 166, 0.12)
+  );
   border-color: rgba(45, 212, 191, 0.55);
   box-shadow: inset 0 0 0 1px rgba(45, 212, 191, 0.18);
 }

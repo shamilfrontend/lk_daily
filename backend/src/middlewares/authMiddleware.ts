@@ -30,7 +30,11 @@ interface JwtAdminClaims {
 }
 
 /** Публичные GET с optional auth: битый/просроченный Bearer не даёт 401 — запрос идёт без req.auth. */
-export async function optionalAuth(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function optionalAuth(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     next();
@@ -38,12 +42,17 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   }
   const token = header.slice('Bearer '.length).trim();
   try {
-    const decoded = jwt.verify(token, env.jwtSecret) as JwtAdminClaims & { iat?: number; exp?: number };
+    const decoded = jwt.verify(token, env.jwtSecret) as JwtAdminClaims & {
+      iat?: number;
+      exp?: number;
+    };
     if (!mongoose.isValidObjectId(decoded.adminId)) {
       next();
       return;
     }
-    const admin = await Admin.findById(decoded.adminId).select('login role teamIds').lean();
+    const admin = await Admin.findById(decoded.adminId)
+      .select('login role teamIds')
+      .lean();
     if (!admin) {
       next();
       return;
@@ -62,7 +71,11 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
   }
 }
 
-export async function requireAdmin(req: Request, _res: Response, next: NextFunction): Promise<void> {
+export async function requireAdmin(
+  req: Request,
+  _res: Response,
+  next: NextFunction,
+): Promise<void> {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) {
     next(new HttpError(401, 'Unauthorized'));
@@ -70,12 +83,17 @@ export async function requireAdmin(req: Request, _res: Response, next: NextFunct
   }
   const token = header.slice('Bearer '.length).trim();
   try {
-    const decoded = jwt.verify(token, env.jwtSecret) as JwtAdminClaims & { iat?: number; exp?: number };
+    const decoded = jwt.verify(token, env.jwtSecret) as JwtAdminClaims & {
+      iat?: number;
+      exp?: number;
+    };
     if (!mongoose.isValidObjectId(decoded.adminId)) {
       next(new HttpError(401, 'Invalid or expired token'));
       return;
     }
-    const admin = await Admin.findById(decoded.adminId).select('login role teamIds').lean();
+    const admin = await Admin.findById(decoded.adminId)
+      .select('login role teamIds')
+      .lean();
     if (!admin) {
       next(new HttpError(401, 'Unauthorized'));
       return;

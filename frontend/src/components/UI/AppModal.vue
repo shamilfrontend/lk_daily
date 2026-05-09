@@ -60,7 +60,10 @@ function getFocusableElements(): HTMLElement[] {
     dialogRef.value.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     ),
-  ).filter((el) => !el.hasAttribute('hidden') && el.getAttribute('aria-hidden') !== 'true');
+  ).filter(
+    (el) =>
+      !el.hasAttribute('hidden') && el.getAttribute('aria-hidden') !== 'true',
+  );
 }
 
 function focusInitialElement(): void {
@@ -123,7 +126,10 @@ watch(
   () => props.modelValue,
   async (open) => {
     if (open) {
-      previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      previouslyFocused =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
       lockScroll();
       document.addEventListener('keydown', onKeydown);
       await nextTick();
@@ -162,7 +168,10 @@ onBeforeUnmount(() => {
           tabindex="-1"
           @pointerdown.stop
         >
-          <header class="app-modal__header" :class="{ 'app-modal__header--no-title': !hasTitle }">
+          <header
+            class="app-modal__header"
+            :class="{ 'app-modal__header--no-title': !hasTitle }"
+          >
             <div v-if="hasTitle" :id="titleId" class="app-modal__title">
               <slot name="title">{{ title }}</slot>
             </div>
@@ -264,7 +273,9 @@ onBeforeUnmount(() => {
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
-  transition: color var(--ease-out), background var(--ease-out);
+  transition:
+    color var(--ease-out),
+    background var(--ease-out);
 }
 
 .app-modal__close:hover {

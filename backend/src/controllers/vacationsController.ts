@@ -4,13 +4,20 @@ import mongoose from 'mongoose';
 import { HttpError } from '../middlewares/errorHandler.js';
 import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';
-import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
+import {
+  parseMoscowDayInput,
+  utcDateToMoscowDateString,
+} from '../utils/dateHelpers.js';
 import { allowedTeamIdSet, assertTeamAccess } from '../utils/authz.js';
 
 const createBody = Joi.object({
   userId: Joi.string().required(),
-  startDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
-  endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
+  startDate: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .required(),
+  endDate: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .required(),
 });
 
 const updateBody = Joi.object({
@@ -18,8 +25,14 @@ const updateBody = Joi.object({
   endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/),
 }).min(1);
 
-export async function listVacations(req: Request, res: Response): Promise<void> {
-  const { userId, teamId, fromDate, toDate } = req.query as Record<string, string | undefined>;
+export async function listVacations(
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const { userId, teamId, fromDate, toDate } = req.query as Record<
+    string,
+    string | undefined
+  >;
   const allowed = allowedTeamIdSet(req.auth);
   if (allowed) {
     if (!teamId || !mongoose.isValidObjectId(teamId)) {
@@ -58,7 +71,10 @@ export async function listVacations(req: Request, res: Response): Promise<void> 
   res.json(list);
 }
 
-export async function createVacation(req: Request, res: Response): Promise<void> {
+export async function createVacation(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const { error, value } = createBody.validate(req.body);
   if (error) {
     throw new HttpError(400, error.message);
@@ -73,14 +89,19 @@ export async function createVacation(req: Request, res: Response): Promise<void>
   assertTeamAccess(req.auth, user.teamId.toString());
   const startDate = parseMoscowDayInput(value.startDate);
   const endDate = parseMoscowDayInput(value.endDate);
-  if (utcDateToMoscowDateString(startDate) > utcDateToMoscowDateString(endDate)) {
+  if (
+    utcDateToMoscowDateString(startDate) > utcDateToMoscowDateString(endDate)
+  ) {
     throw new HttpError(400, 'startDate must be <= endDate');
   }
   const v = await Vacation.create({ userId: user._id, startDate, endDate });
   res.status(201).json(v);
 }
 
-export async function updateVacation(req: Request, res: Response): Promise<void> {
+export async function updateVacation(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const { error, value } = updateBody.validate(req.body);
   if (error) {
     throw new HttpError(400, error.message);
@@ -97,7 +118,9 @@ export async function updateVacation(req: Request, res: Response): Promise<void>
     throw new HttpError(404, 'User not found');
   }
   assertTeamAccess(req.auth, vacUser.teamId.toString());
-  const start = value.startDate ? parseMoscowDayInput(value.startDate) : v.startDate;
+  const start = value.startDate
+    ? parseMoscowDayInput(value.startDate)
+    : v.startDate;
   const end = value.endDate ? parseMoscowDayInput(value.endDate) : v.endDate;
   if (utcDateToMoscowDateString(start) > utcDateToMoscowDateString(end)) {
     throw new HttpError(400, 'startDate must be <= endDate');
@@ -108,7 +131,10 @@ export async function updateVacation(req: Request, res: Response): Promise<void>
   res.json(v);
 }
 
-export async function deleteVacation(req: Request, res: Response): Promise<void> {
+export async function deleteVacation(
+  req: Request,
+  res: Response,
+): Promise<void> {
   if (!mongoose.isValidObjectId(req.params.id)) {
     throw new HttpError(400, 'Invalid id');
   }

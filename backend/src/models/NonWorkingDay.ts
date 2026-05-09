@@ -44,7 +44,5 @@ nonWorkingDaySchema.post(
   invalidateCalendarCache,
 );
 
-export const NonWorkingDay: Model<INonWorkingDay> = mongoose.model<INonWorkingDay>(
-  'NonWorkingDay',
-  nonWorkingDaySchema,
-);
+export const NonWorkingDay: Model<INonWorkingDay> =
+  mongoose.model<INonWorkingDay>('NonWorkingDay', nonWorkingDaySchema);

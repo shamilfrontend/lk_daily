@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { HolidayTransferItem, NonWorkingItem, NonWorkingItemType } from '@/types/api';
+import type {
+  HolidayTransferItem,
+  NonWorkingItem,
+  NonWorkingItemType,
+} from '@/types/api';
 
 const props = defineProps<{
   year: number;
@@ -69,7 +73,9 @@ const eventsByDate = computed(() => {
   return m;
 });
 
-const transferFromSet = computed(() => new Set(props.transfers.map((t) => t.fromDate)));
+const transferFromSet = computed(
+  () => new Set(props.transfers.map((t) => t.fromDate)),
+);
 
 function primaryTypeForDate(dateStr: string): NonWorkingItemType | null {
   const list = eventsByDate.value.get(dateStr);
@@ -90,7 +96,11 @@ function titleForDate(dateStr: string): string {
   const parts: string[] = [];
   if (transferFromSet.value.has(dateStr)) {
     const tr = props.transfers.find((t) => t.fromDate === dateStr);
-    parts.push(tr?.description ? `Перенос: ${tr.description}` : 'Исходный день переноса (рабочий)');
+    parts.push(
+      tr?.description
+        ? `Перенос: ${tr.description}`
+        : 'Исходный день переноса (рабочий)',
+    );
   }
   const list = eventsByDate.value.get(dateStr);
   if (list?.length) {
@@ -164,16 +174,28 @@ const monthsData = computed(() => {
   <div class="cal">
     <div class="cal__legend row" aria-label="Легенда">
       <span><span class="cal__swatch cal__swatch--federal" />федеральный</span>
-      <span><span class="cal__swatch cal__swatch--transfer" />перенос (выходной)</span>
-      <span><span class="cal__swatch cal__swatch--regional" />региональный</span>
-      <span><span class="cal__swatch cal__swatch--custom" />пользовательский</span>
+      <span
+        ><span class="cal__swatch cal__swatch--transfer" />перенос
+        (выходной)</span
+      >
+      <span
+        ><span class="cal__swatch cal__swatch--regional" />региональный</span
+      >
+      <span
+        ><span class="cal__swatch cal__swatch--custom" />пользовательский</span
+      >
       <span><span class="cal__swatch cal__swatch--weekend" />выходной</span>
-      <span><span class="cal__swatch cal__swatch--transfer-from" />день переноса (рабочий)</span>
+      <span
+        ><span class="cal__swatch cal__swatch--transfer-from" />день переноса
+        (рабочий)</span
+      >
     </div>
 
     <div class="cal__months">
       <div v-for="block in monthsData" :key="block.name" class="cal__month">
-        <h3 :id="`cal-month-${block.name}-${year}`" class="cal__month-title">{{ block.name }}</h3>
+        <h3 :id="`cal-month-${block.name}-${year}`" class="cal__month-title">
+          {{ block.name }}
+        </h3>
         <div
           class="cal__grid"
           role="grid"
@@ -190,11 +212,18 @@ const monthsData = computed(() => {
               {{ wd }}
             </div>
           </div>
-          <div v-for="(week, wi) in block.weeks" :key="`${block.name}-w${wi}`" role="row" class="cal__grid-row">
+          <div
+            v-for="(week, wi) in block.weeks"
+            :key="`${block.name}-w${wi}`"
+            role="row"
+            class="cal__grid-row"
+          >
             <div
               v-for="(cell, ci) in week"
               :key="`${block.name}-${wi}-${ci}`"
-              :class="cell ? cellClass(cell.dateStr) : 'cal__cell cal__cell--empty'"
+              :class="
+                cell ? cellClass(cell.dateStr) : 'cal__cell cal__cell--empty'
+              "
               :role="cell ? 'gridcell' : 'presentation'"
               :aria-hidden="cell ? undefined : true"
               :title="cell ? titleForDate(cell.dateStr) : undefined"

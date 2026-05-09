@@ -12,7 +12,10 @@ export function assertSuperAdmin(auth: AuthPayload | undefined): void {
   }
 }
 
-export function assertTeamAccess(auth: AuthPayload | undefined, teamId: string | undefined): void {
+export function assertTeamAccess(
+  auth: AuthPayload | undefined,
+  teamId: string | undefined,
+): void {
   if (!auth) {
     throw new HttpError(401, 'Unauthorized');
   }
@@ -28,7 +31,9 @@ export function assertTeamAccess(auth: AuthPayload | undefined, teamId: string |
 }
 
 /** Для тимлида при запросах списков без явной команды — вернуть только разрешённые teamIds. */
-export function allowedTeamIdSet(auth: AuthPayload | undefined): Set<string> | null {
+export function allowedTeamIdSet(
+  auth: AuthPayload | undefined,
+): Set<string> | null {
   if (!auth || auth.role === 'super') {
     return null;
   }

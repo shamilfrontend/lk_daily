@@ -90,7 +90,9 @@ body {
 a {
   color: var(--accent);
   text-decoration: none;
-  transition: color var(--ease-out), text-decoration-color var(--ease-out);
+  transition:
+    color var(--ease-out),
+    text-decoration-color var(--ease-out);
 }
 
 a:hover {
@@ -558,7 +560,11 @@ a:focus-visible {
   padding: var(--space-3);
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98),
+    rgba(248, 250, 252, 0.98)
+  );
   box-shadow: var(--shadow-soft);
 }
 

@@ -36,7 +36,12 @@ const emit = defineEmits<{
     <div class="confirm-modal">
       <p class="confirm-modal__description">{{ description }}</p>
       <div class="confirm-modal__actions">
-        <button type="button" class="btn" :disabled="loading" @click="emit('update:modelValue', false)">
+        <button
+          type="button"
+          class="btn"
+          :disabled="loading"
+          @click="emit('update:modelValue', false)"
+        >
           {{ cancelLabel }}
         </button>
         <button

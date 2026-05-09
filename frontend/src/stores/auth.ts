@@ -1,8 +1,16 @@
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
+
 import { api } from '@/api/client';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
+
+interface ResponseVerify {
+  ok: boolean;
+  login: string;
+  role: 'super' | 'team-lead';
+  teamIds: string[];
+}
 
 const TOKEN_KEY = 'lk_daily_token';
 
@@ -27,7 +35,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function login(loginStr: string, password: string): Promise<void> {
     try {
-      const { data } = await api.post<{ token: string }>('/auth/login', { login: loginStr, password });
+      const { data } = await api.post<{ token: string }>('/auth/login', {
+        login: loginStr,
+        password,
+      });
       setToken(data.token);
       loginName.value = loginStr;
       verifyError.value = null;
@@ -49,16 +60,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function verify(): Promise<void> {
-    if (!token.value) {
-      return;
-    }
+    if (!token.value) return;
+
     try {
-      const { data } = await api.get<{
-        ok: boolean;
-        login: string;
-        role: 'super' | 'team-lead';
-        teamIds: string[];
-      }>('/auth/verify');
+      const { data } = await api.get<ResponseVerify>('/auth/verify');
+
       if (data.ok) {
         loginName.value = data.login;
         role.value = data.role ?? 'super';
@@ -72,5 +78,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  return { token, loginName, role, teamIds, verifyError, isAdmin, isSuperAdmin, login, logout, verify };
+  return {
+    token,
+    loginName,
+    role,
+    teamIds,
+    verifyError,
+    isAdmin,
+    isSuperAdmin,
+    login,
+    logout,
+    verify,
+  };
 });

@@ -3,7 +3,10 @@ import Joi from 'joi';
 import mongoose from 'mongoose';
 import { HttpError } from '../middlewares/errorHandler.js';
 import { PresentationLog } from '../models/PresentationLog.js';
-import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
+import {
+  parseMoscowDayInput,
+  utcDateToMoscowDateString,
+} from '../utils/dateHelpers.js';
 
 type HistoryQuery = {
   teamId?: string;
@@ -28,9 +31,18 @@ const historyQuerySchema = Joi.object({
       }
       return s;
     }),
-  from: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
-  to: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).optional().allow(''),
-  status: Joi.string().valid('presented', 'skipped', 'no_available').optional().allow(''),
+  from: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .allow(''),
+  to: Joi.string()
+    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .allow(''),
+  status: Joi.string()
+    .valid('presented', 'skipped', 'no_available')
+    .optional()
+    .allow(''),
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
 });
@@ -101,7 +113,10 @@ export async function listHistory(req: Request, res: Response): Promise<void> {
 
 const MAX_HISTORY_CSV_ROWS = 5000;
 
-export async function exportHistoryCsv(req: Request, res: Response): Promise<void> {
+export async function exportHistoryCsv(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const filter = buildHistoryFilter(validateHistoryQuery(req.query));
 
   const rows = await PresentationLog.find(filter)
@@ -119,7 +134,10 @@ export async function exportHistoryCsv(req: Request, res: Response): Promise<voi
         ? String((row.teamId as { name?: string }).name ?? '')
         : '';
     const user =
-      row.userId && typeof row.userId === 'object' && row.userId !== null && 'fullName' in row.userId
+      row.userId &&
+      typeof row.userId === 'object' &&
+      row.userId !== null &&
+      'fullName' in row.userId
         ? String((row.userId as { fullName?: string }).fullName ?? '')
         : '';
     lines.push(
@@ -131,6 +149,9 @@ export async function exportHistoryCsv(req: Request, res: Response): Promise<voi
 
   const body = `\uFEFF${lines.join('\n')}\n`;
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader('Content-Disposition', 'attachment; filename="lk-daily-history.csv"');
+  res.setHeader(
+    'Content-Disposition',
+    'attachment; filename="lk-daily-history.csv"',
+  );
   res.send(body);
 }

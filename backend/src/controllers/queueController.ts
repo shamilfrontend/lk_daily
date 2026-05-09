@@ -2,7 +2,10 @@ import type { Request, Response } from 'express';
 import Joi from 'joi';
 import mongoose from 'mongoose';
 
-import { HttpError, isMongoDuplicateKeyError } from '../middlewares/errorHandler.js';
+import {
+  HttpError,
+  isMongoDuplicateKeyError,
+} from '../middlewares/errorHandler.js';
 import { User } from '../models/User.js';
 import { assertTeamAccess } from '../utils/authz.js';
 import {
@@ -15,7 +18,10 @@ import {
   replaceQueueOrder,
   sortQueueAlphabetically,
 } from '../services/queueService.js';
-import { formatMoscowWeekdayLongRu, getMoscowDateString } from '../utils/dateHelpers.js';
+import {
+  formatMoscowWeekdayLongRu,
+  getMoscowDateString,
+} from '../utils/dateHelpers.js';
 import { buildIcsCalendar, type IcsEventInput } from '../utils/ics.js';
 
 const orderBody = Joi.object({
@@ -39,7 +45,10 @@ function mapPresenterError(code: string): HttpError {
     case 'NO_QUEUE':
       return new HttpError(400, 'Queue is empty');
     case 'SWAP_NO_PRESENTER':
-      return new HttpError(400, 'Cannot swap: missing presenter on one of the dates');
+      return new HttpError(
+        400,
+        'Cannot swap: missing presenter on one of the dates',
+      );
     default:
       return new HttpError(500, code);
   }
@@ -117,7 +126,10 @@ function csvEscape(value: string): string {
   return value;
 }
 
-export async function exportUpcomingIcs(req: Request, res: Response): Promise<void> {
+export async function exportUpcomingIcs(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
   const daysRaw = req.query.days as string | undefined;
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
@@ -145,7 +157,10 @@ export async function exportUpcomingIcs(req: Request, res: Response): Promise<vo
     });
     const body = buildIcsCalendar('-//LK Daily//RU', events);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="lk-daily-upcoming.ics"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="lk-daily-upcoming.ics"',
+    );
     res.send(body);
   } catch (e) {
     if (e instanceof Error && e.message === 'TEAM_NOT_FOUND') {
@@ -155,7 +170,10 @@ export async function exportUpcomingIcs(req: Request, res: Response): Promise<vo
   }
 }
 
-export async function exportUpcomingCsv(req: Request, res: Response): Promise<void> {
+export async function exportUpcomingCsv(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
   const daysRaw = req.query.days as string | undefined;
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
@@ -178,7 +196,10 @@ export async function exportUpcomingCsv(req: Request, res: Response): Promise<vo
     }
     const body = `\uFEFF${lines.join('\n')}\n`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="lk-daily-upcoming.csv"');
+    res.setHeader(
+      'Content-Disposition',
+      'attachment; filename="lk-daily-upcoming.csv"',
+    );
     res.send(body);
   } catch (e) {
     if (e instanceof Error && e.message === 'TEAM_NOT_FOUND') {
@@ -248,7 +269,10 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
     isActive: true,
   }).lean();
   if (users.length !== objectIds.length) {
-    throw new HttpError(400, 'userIds must contain only active users of this team');
+    throw new HttpError(
+      400,
+      'userIds must contain only active users of this team',
+    );
   }
   const seen = new Set<string>();
   for (const id of ids) {
@@ -261,12 +285,17 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
   res.json({ ok: true, userIds: ids });
 }
 
-export async function sortOrderAlphabetically(req: Request, res: Response): Promise<void> {
+export async function sortOrderAlphabetically(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
   assertTeamAccess(req.auth, teamId);
-  const userIds = await sortQueueAlphabetically(new mongoose.Types.ObjectId(teamId));
+  const userIds = await sortQueueAlphabetically(
+    new mongoose.Types.ObjectId(teamId),
+  );
   res.json({ ok: true, userIds });
 }

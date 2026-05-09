@@ -1,4 +1,9 @@
-import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
+import mongoose, {
+  Schema,
+  type Document,
+  type Model,
+  type Types,
+} from 'mongoose';
 
 export type AdminRole = 'super' | 'team-lead';
 
@@ -24,4 +29,7 @@ const adminSchema = new Schema<IAdmin>(
   { timestamps: false },
 );
 
-export const Admin: Model<IAdmin> = mongoose.model<IAdmin>('Admin', adminSchema);
+export const Admin: Model<IAdmin> = mongoose.model<IAdmin>(
+  'Admin',
+  adminSchema,
+);

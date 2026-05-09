@@ -20,14 +20,16 @@ export function isMongoDuplicateKeyError(err: unknown): boolean {
   const seen = new Set<unknown>();
   while (cur && typeof cur === 'object' && !seen.has(cur)) {
     seen.add(cur);
-    const code = (cur as { code?: number | string }).code;
+    const { code } = cur as { code?: number | string };
     if (code === 11000 || code === '11000') {
       return true;
     }
     cur = (cur as { cause?: unknown }).cause;
   }
   return (
-    err instanceof Error && typeof err.message === 'string' && err.message.startsWith('E11000')
+    err instanceof Error &&
+    typeof err.message === 'string' &&
+    err.message.startsWith('E11000')
   );
 }
 
@@ -40,7 +42,11 @@ function isHttpErrorLike(err: unknown): err is HttpError {
     return false;
   }
   const o = err as { name?: unknown; status?: unknown; message?: unknown };
-  return o.name === 'HttpError' && typeof o.status === 'number' && typeof o.message === 'string';
+  return (
+    o.name === 'HttpError' &&
+    typeof o.status === 'number' &&
+    typeof o.message === 'string'
+  );
 }
 
 export function getErrorMessage(err: unknown): string {
@@ -89,7 +95,10 @@ function tryMapQueueDomainError(err: unknown): HttpError | null {
     case 'Invalid date':
       return new HttpError(400, 'Invalid date');
     case 'SWAP_NO_PRESENTER':
-      return new HttpError(400, 'Cannot swap: missing presenter on one of the dates');
+      return new HttpError(
+        400,
+        'Cannot swap: missing presenter on one of the dates',
+      );
     default:
       return null;
   }
@@ -99,16 +108,28 @@ function logRequestMeta(req: Request): { requestId?: string } {
   return req.id ? { requestId: req.id } : {};
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(
+  err: unknown,
+  _req: Request,
+  res: Response,
+  _next: NextFunction,
+): void {
   try {
     dispatchError(err, _req, res);
   } catch (nested) {
-    logger.error('errorHandler failed', { nested, original: err, ...logRequestMeta(_req) });
+    logger.error('errorHandler failed', {
+      nested,
+      original: err,
+      ...logRequestMeta(_req),
+    });
     if (!res.headersSent) {
       res.status(500).json({
         message: 'Internal server error',
         ...(env.nodeEnv !== 'production'
-          ? { debug: getErrorMessage(nested), debugOriginal: getErrorMessage(err) }
+          ? {
+              debug: getErrorMessage(nested),
+              debugOriginal: getErrorMessage(err),
+            }
           : {}),
       });
     }
@@ -124,7 +145,9 @@ function dispatchError(err: unknown, _req: Request, res: Response): void {
 
   const domain = tryMapQueueDomainError(err);
   if (domain) {
-    res.status(domain.status).json({ message: domain.message, details: domain.details });
+    res
+      .status(domain.status)
+      .json({ message: domain.message, details: domain.details });
     return;
   }
 
@@ -144,15 +167,20 @@ function dispatchError(err: unknown, _req: Request, res: Response): void {
   }
 
   /** Нативный драйвер `mongodb` (не наследует `mongoose.Error`). */
-  if (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'MongoServerError') {
+  if (
+    typeof err === 'object' &&
+    err !== null &&
+    (err as { name?: string }).name === 'MongoServerError'
+  ) {
     const m = err as { code?: number; message: string };
     if (m.code === 11000 || m.code === 11001) {
       res.status(409).json({ message: 'Duplicate key' });
       return;
     }
-    const unavailable = /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|Server selection timed out|connection.*closed|pool/i.test(
-      m.message,
-    );
+    const unavailable =
+      /ECONNREFUSED|ENOTFOUND|ETIMEDOUT|Server selection timed out|connection.*closed|pool/i.test(
+        m.message,
+      );
     const status = unavailable ? 503 : 500;
     res.status(status).json({
       message:
@@ -165,9 +193,10 @@ function dispatchError(err: unknown, _req: Request, res: Response): void {
 
   /** Прочие ошибки Mongoose (кроме уже обработанных выше). */
   if (err instanceof mongoose.Error) {
-    const unavailable = /ServerSelection|MongoNetwork|ECONNREFUSED|ENOTFOUND|buffering timed out/i.test(
-      `${err.name} ${err.message}`,
-    );
+    const unavailable =
+      /ServerSelection|MongoNetwork|ECONNREFUSED|ENOTFOUND|buffering timed out/i.test(
+        `${err.name} ${err.message}`,
+      );
     const status = unavailable ? 503 : 400;
     const message =
       env.nodeEnv === 'production' && unavailable
@@ -177,7 +206,11 @@ function dispatchError(err: unknown, _req: Request, res: Response): void {
     return;
   }
 
-  logger.error('Unhandled error', { err, message: getErrorMessage(err), ...logRequestMeta(_req) });
+  logger.error('Unhandled error', {
+    err,
+    message: getErrorMessage(err),
+    ...logRequestMeta(_req),
+  });
 
   if (env.nodeEnv !== 'production') {
     const code =

@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+
 import { api } from '@/api/client';
-import type { HolidayTransferItem, NonWorkingItem } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyError } from '@/composables/useAppNotifications';
+
+import type { HolidayTransferItem, NonWorkingItem } from '@/types/api';
 
 export const useNonWorkingDaysStore = defineStore('nonWorkingDays', () => {
   const year = ref(new Date().getFullYear());
@@ -17,12 +19,18 @@ export const useNonWorkingDaysStore = defineStore('nonWorkingDays', () => {
     error.value = null;
     try {
       const [nwdRes, trRes] = await Promise.all([
-        api.get<{ year: number; items: NonWorkingItem[] }>('/non-working-days', {
-          params: { year: y, teamId },
-        }),
-        api.get<{ year: number; items: HolidayTransferItem[] }>('/holiday-transfers', {
-          params: { year: y },
-        }),
+        api.get<{ year: number; items: NonWorkingItem[] }>(
+          '/non-working-days',
+          {
+            params: { year: y, teamId },
+          },
+        ),
+        api.get<{ year: number; items: HolidayTransferItem[] }>(
+          '/holiday-transfers',
+          {
+            params: { year: y },
+          },
+        ),
       ]);
       year.value = nwdRes.data.year;
       items.value = nwdRes.data.items;

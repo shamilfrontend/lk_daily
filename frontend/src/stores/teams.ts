@@ -1,9 +1,11 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
+
 import { api } from '@/api/client';
-import type { Team } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
+
+import type { Team } from '@/types/api';
 
 export const useTeamsStore = defineStore('teams', () => {
   const teams = ref<Team[]>([]);
@@ -25,7 +27,11 @@ export const useTeamsStore = defineStore('teams', () => {
     }
   }
 
-  async function createTeam(payload: { name: string; description?: string; region?: string }): Promise<Team> {
+  async function createTeam(payload: {
+    name: string;
+    description?: string;
+    region?: string;
+  }): Promise<Team> {
     try {
       const { data } = await api.post<Team>('/teams', payload);
       await fetchTeams();
@@ -63,5 +69,13 @@ export const useTeamsStore = defineStore('teams', () => {
     }
   }
 
-  return { teams, loading, error, fetchTeams, createTeam, updateTeam, deleteTeam };
+  return {
+    teams,
+    loading,
+    error,
+    fetchTeams,
+    createTeam,
+    updateTeam,
+    deleteTeam,
+  };
 });

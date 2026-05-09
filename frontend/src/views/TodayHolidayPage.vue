@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+
 import { api } from '@/api/client';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
-import type { TodayHolidaysResponse } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
+
+import type { TodayHolidaysResponse } from '@/types/api';
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
@@ -64,7 +66,12 @@ onBeforeUnmount(() => {
       tone="error"
     >
       <template #actions>
-        <button type="button" class="btn btn--primary" :disabled="isLoading" @click="loadTodayHolidays(false)">
+        <button
+          type="button"
+          class="btn btn--primary"
+          :disabled="isLoading"
+          @click="loadTodayHolidays(false)"
+        >
           Повторить
         </button>
       </template>
@@ -74,14 +81,27 @@ onBeforeUnmount(() => {
       <div class="card-heading">
         <div>
           <h2 class="card-heading__title">Праздники текущего дня</h2>
-          <p class="card-heading__subtitle">Источник: {{ sourceUrl || 'kakoysegodnyaprazdnik.ru' }}</p>
+          <p class="card-heading__subtitle">
+            Источник: {{ sourceUrl || 'kakoysegodnyaprazdnik.ru' }}
+          </p>
         </div>
-        <button type="button" class="btn holiday-refresh-btn" :disabled="isLoading" @click="loadTodayHolidays(false)">
+        <button
+          type="button"
+          class="btn holiday-refresh-btn"
+          :disabled="isLoading"
+          @click="loadTodayHolidays(false)"
+        >
           {{ isLoading ? 'Обновляем...' : 'Обновить' }}
         </button>
       </div>
 
-      <div v-if="isLoading" class="holiday-loader" role="status" aria-live="polite" aria-label="Загружаем праздники">
+      <div
+        v-if="isLoading"
+        class="holiday-loader"
+        role="status"
+        aria-live="polite"
+        aria-label="Загружаем праздники"
+      >
         <span class="holiday-loader__spinner" aria-hidden="true"></span>
         <span class="holiday-loader__text">Загружаем праздники...</span>
       </div>
@@ -99,7 +119,9 @@ onBeforeUnmount(() => {
         </li>
       </ul>
 
-      <p v-if="fetchedAt" class="holiday-meta">Обновлено: {{ new Date(fetchedAt).toLocaleString('ru-RU') }}</p>
+      <p v-if="fetchedAt" class="holiday-meta">
+        Обновлено: {{ new Date(fetchedAt).toLocaleString('ru-RU') }}
+      </p>
     </div>
   </section>
 </template>
@@ -145,7 +167,7 @@ onBeforeUnmount(() => {
   padding-left: 1.2rem;
   display: grid;
   gap: 0.45rem;
-	grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, 1fr);
 }
 
 .holiday-list__item {

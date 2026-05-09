@@ -4,7 +4,10 @@ import { HttpError } from '../middlewares/errorHandler.js';
 import { Team } from '../models/Team.js';
 import { listNonWorkingDaysForYear } from '../services/calendarService.js';
 
-export async function listNonWorkingDays(req: Request, res: Response): Promise<void> {
+export async function listNonWorkingDays(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const yearRaw = req.query.year as string | undefined;
   const teamId = req.query.teamId as string | undefined;
   const year = yearRaw ? Number(yearRaw) : new Date().getFullYear();

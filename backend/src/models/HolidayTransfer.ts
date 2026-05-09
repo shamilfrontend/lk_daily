@@ -39,7 +39,5 @@ holidayTransferSchema.post(
   invalidateCalendarCache,
 );
 
-export const HolidayTransfer: Model<IHolidayTransfer> = mongoose.model<IHolidayTransfer>(
-  'HolidayTransfer',
-  holidayTransferSchema,
-);
+export const HolidayTransfer: Model<IHolidayTransfer> =
+  mongoose.model<IHolidayTransfer>('HolidayTransfer', holidayTransferSchema);

@@ -8,8 +8,16 @@ import { QueueOrder } from '../models/QueueOrder.js';
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';
-import { getMoscowDateString, moscowDateStringToUtc, nextMoscowDateString } from '../utils/dateHelpers.js';
-import { explainWhyNonWorking, getWorkingDayCheckerForYear, isWorkingDay } from './calendarService.js';
+import {
+  getMoscowDateString,
+  moscowDateStringToUtc,
+  nextMoscowDateString,
+} from '../utils/dateHelpers.js';
+import {
+  explainWhyNonWorking,
+  getWorkingDayCheckerForYear,
+  isWorkingDay,
+} from './calendarService.js';
 
 /** Транзакции Mongoose требуют replica set или mongos; локальный одиночный mongod падает с этой ошибкой. */
 let cachedTransactionsSupported: boolean | undefined;
@@ -19,7 +27,7 @@ async function isMongoTransactionsSupported(): Promise<boolean> {
     return cachedTransactionsSupported;
   }
   try {
-    const db = mongoose.connection.db;
+    const { db } = mongoose.connection;
     if (!db) {
       cachedTransactionsSupported = false;
       return false;
@@ -92,7 +100,10 @@ export async function findFirstPresenterId(
   return null;
 }
 
-function rotatePresenter(queue: Types.ObjectId[], presenterId: Types.ObjectId): Types.ObjectId[] {
+function rotatePresenter(
+  queue: Types.ObjectId[],
+  presenterId: Types.ObjectId,
+): Types.ObjectId[] {
   const idx = queue.findIndex((id) => id.equals(presenterId));
   if (idx === -1) {
     return [...queue];
@@ -118,7 +129,10 @@ export type CurrentPresenterResult =
       substitution?: { canonicalUserId: string; canonicalFullName: string };
     };
 
-export async function getCurrentPresenter(teamId: string, when: Date = new Date()): Promise<CurrentPresenterResult> {
+export async function getCurrentPresenter(
+  teamId: string,
+  when: Date = new Date(),
+): Promise<CurrentPresenterResult> {
   const team = await Team.findById(teamId);
   if (!team) {
     throw new Error('TEAM_NOT_FOUND');
@@ -143,9 +157,14 @@ export async function getCurrentPresenter(teamId: string, when: Date = new Date(
   }).lean();
 
   const userById = new Map(users.map((u) => [u._id.toString(), u]));
-  const orderedActive = queueOrder.userIds.filter((id) => userById.has(id.toString()));
+  const orderedActive = queueOrder.userIds.filter((id) =>
+    userById.has(id.toString()),
+  );
 
-  const vacationSet = await getVacationUserIdSetForMoscowDay(orderedActive, moscowDateStr);
+  const vacationSet = await getVacationUserIdSetForMoscowDay(
+    orderedActive,
+    moscowDateStr,
+  );
   const maternitySet = await getMaternityUserIdSet(orderedActive);
   const unavailable = new Set<string>([...vacationSet, ...maternitySet]);
   const presenterId = await findFirstPresenterId(orderedActive, unavailable);
@@ -187,7 +206,10 @@ export async function getCurrentPresenter(teamId: string, when: Date = new Date(
   return {
     kind: 'ok',
     userId: presenterId,
-    user: { _id: canonicalUser._id.toString(), fullName: canonicalUser.fullName },
+    user: {
+      _id: canonicalUser._id.toString(),
+      fullName: canonicalUser.fullName,
+    },
     rotationUserId: presenterId,
   };
 }
@@ -206,7 +228,9 @@ export async function presentationLogExistsForTeamMoscowDay(
   session?: ClientSession,
 ): Promise<boolean> {
   const dayStart = moscowDateStringToUtc(moscowDateStr);
-  const dayEndExclusive = moscowDateStringToUtc(nextMoscowDateString(moscowDateStr));
+  const dayEndExclusive = moscowDateStringToUtc(
+    nextMoscowDateString(moscowDateStr),
+  );
   const exists = await PresentationLog.exists({
     teamId: toOid(teamId),
     date: { $gte: dayStart, $lt: dayEndExclusive },
@@ -219,7 +243,11 @@ export async function assertNoLogForTeamDay(
   moscowDateStr: string,
   session?: ClientSession,
 ): Promise<void> {
-  const exists = await presentationLogExistsForTeamMoscowDay(teamId, moscowDateStr, session);
+  const exists = await presentationLogExistsForTeamMoscowDay(
+    teamId,
+    moscowDateStr,
+    session,
+  );
   if (exists) {
     throw new Error('ALREADY_RECORDED_TODAY');
   }
@@ -243,9 +271,14 @@ export async function getQueueInsightsForToday(
     isActive: true,
   }).lean();
   const activeIdSet = new Set(users.map((u) => u._id.toString()));
-  const orderedActive = queueOrder.userIds.filter((id) => activeIdSet.has(id.toString()));
+  const orderedActive = queueOrder.userIds.filter((id) =>
+    activeIdSet.has(id.toString()),
+  );
   const moscowDateStr = getMoscowDateString(when);
-  const vacationSet = await getVacationUserIdSetForMoscowDay(orderedActive, moscowDateStr);
+  const vacationSet = await getVacationUserIdSetForMoscowDay(
+    orderedActive,
+    moscowDateStr,
+  );
   const maternitySet = await getMaternityUserIdSet(orderedActive);
   return {
     vacationUserIds: [...vacationSet],
@@ -283,7 +316,11 @@ export async function swapSubstitutionDays(
     return;
   }
   const tid = toOid(teamId);
-  const baseOpts = { upsert: true, new: true, setDefaultsOnInsert: true } as const;
+  const baseOpts = {
+    upsert: true,
+    new: true,
+    setDefaultsOnInsert: true,
+  } as const;
   const writePair = async (session: ClientSession | null) => {
     const sessionOpt = session ? { ...baseOpts, session } : { ...baseOpts };
     await QueueDaySubstitution.findOneAndUpdate(
@@ -351,7 +388,9 @@ async function recordPresentationCore(
         isActive: true,
       }).lean());
   const userById = new Map(users.map((u) => [u._id.toString(), u]));
-  const orderedActive = queueOrder.userIds.filter((id) => userById.has(id.toString()));
+  const orderedActive = queueOrder.userIds.filter((id) =>
+    userById.has(id.toString()),
+  );
   if (orderedActive.length === 0) {
     throw new Error('NO_PRESENTER');
   }
@@ -361,9 +400,15 @@ async function recordPresentationCore(
     moscowDateStr,
     session ?? undefined,
   );
-  const maternitySet = await getMaternityUserIdSet(orderedActive, session ?? undefined);
+  const maternitySet = await getMaternityUserIdSet(
+    orderedActive,
+    session ?? undefined,
+  );
   const unavailable = new Set<string>([...vacationSet, ...maternitySet]);
-  const canonicalPresenterId = await findFirstPresenterId(orderedActive, unavailable);
+  const canonicalPresenterId = await findFirstPresenterId(
+    orderedActive,
+    unavailable,
+  );
   if (!canonicalPresenterId) {
     throw new Error('NO_PRESENTER');
   }
@@ -485,17 +530,30 @@ export async function getUpcomingPresenters(
   let sim = [...queueOrder.userIds];
   const rows: UpcomingRow[] = [];
 
-  const teamUsers = await User.find({ teamId: team._id, isActive: true }).lean();
+  const teamUsers = await User.find({
+    teamId: team._id,
+    isActive: true,
+  }).lean();
   const userById = new Map(teamUsers.map((u) => [u._id.toString(), u]));
-  const maternityTeamIds = await getMaternityUserIdSet(teamUsers.map((u) => u._id));
+  const maternityTeamIds = await getMaternityUserIdSet(
+    teamUsers.map((u) => u._id),
+  );
   const checkerByYear = new Map<number, (dateStr: string) => boolean>();
-  const substitutionDocs = await QueueDaySubstitution.find({ teamId: team._id }).lean();
-  const substitutionByMoscowDate = new Map(substitutionDocs.map((s) => [s.moscowDate, s]));
+  const substitutionDocs = await QueueDaySubstitution.find({
+    teamId: team._id,
+  }).lean();
+  const substitutionByMoscowDate = new Map(
+    substitutionDocs.map((s) => [s.moscowDate, s]),
+  );
 
   let cursor = getMoscowDateString(when);
   const maxCalendarScan = 800;
 
-  for (let i = 0; i < maxCalendarScan && rows.length < workingDaysLimit; i += 1) {
+  for (
+    let i = 0;
+    i < maxCalendarScan && rows.length < workingDaysLimit;
+    i += 1
+  ) {
     const year = Number(cursor.slice(0, 4));
     let checker = checkerByYear.get(year);
     if (!checker) {
@@ -509,7 +567,10 @@ export async function getUpcomingPresenters(
     }
 
     const activeSim = sim.filter((id) => userById.has(id.toString()));
-    const vacationSet = await getVacationUserIdSetForMoscowDay(activeSim, cursor);
+    const vacationSet = await getVacationUserIdSetForMoscowDay(
+      activeSim,
+      cursor,
+    );
     const unavailable = new Set<string>(vacationSet);
     for (const oid of activeSim) {
       if (maternityTeamIds.has(oid.toString())) {
@@ -549,15 +610,19 @@ export async function getUpcomingPresenters(
 }
 
 export async function ensureQueueOrder(teamId: Types.ObjectId): Promise<void> {
-  await QueueOrder.updateOne({ teamId }, { $setOnInsert: { teamId, userIds: [] } }, { upsert: true });
-}
-
-export async function appendUserToQueueEnd(teamId: Types.ObjectId, userId: Types.ObjectId): Promise<void> {
-  await ensureQueueOrder(teamId);
   await QueueOrder.updateOne(
     { teamId },
-    { $addToSet: { userIds: userId } },
+    { $setOnInsert: { teamId, userIds: [] } },
+    { upsert: true },
   );
+}
+
+export async function appendUserToQueueEnd(
+  teamId: Types.ObjectId,
+  userId: Types.ObjectId,
+): Promise<void> {
+  await ensureQueueOrder(teamId);
+  await QueueOrder.updateOne({ teamId }, { $addToSet: { userIds: userId } });
   // $addToSet не гарантирует порядок «в конец» — добиваем переносом в конец если уже был
   const q = await QueueOrder.findOne({ teamId });
   if (!q) return;
@@ -567,11 +632,17 @@ export async function appendUserToQueueEnd(teamId: Types.ObjectId, userId: Types
   await q.save();
 }
 
-export async function removeUserFromQueue(teamId: Types.ObjectId, userId: Types.ObjectId): Promise<void> {
+export async function removeUserFromQueue(
+  teamId: Types.ObjectId,
+  userId: Types.ObjectId,
+): Promise<void> {
   await QueueOrder.updateOne({ teamId }, { $pull: { userIds: userId } });
 }
 
-export async function replaceQueueOrder(teamId: Types.ObjectId, userIds: Types.ObjectId[]): Promise<void> {
+export async function replaceQueueOrder(
+  teamId: Types.ObjectId,
+  userIds: Types.ObjectId[],
+): Promise<void> {
   await QueueOrder.findOneAndUpdate(
     { teamId },
     { $set: { userIds } },
@@ -579,12 +650,16 @@ export async function replaceQueueOrder(teamId: Types.ObjectId, userIds: Types.O
   );
 }
 
-export async function sortQueueAlphabetically(teamId: Types.ObjectId): Promise<string[]> {
+export async function sortQueueAlphabetically(
+  teamId: Types.ObjectId,
+): Promise<string[]> {
   const team = await Team.findById(teamId).select('_id').lean();
   if (!team) {
     throw new Error('TEAM_NOT_FOUND');
   }
-  const users = await User.find({ teamId, isActive: true }).sort({ fullName: 1 }).lean();
+  const users = await User.find({ teamId, isActive: true })
+    .sort({ fullName: 1 })
+    .lean();
   const ids = users.map((u) => u._id);
   await replaceQueueOrder(teamId, ids);
   return ids.map((id) => id.toString());

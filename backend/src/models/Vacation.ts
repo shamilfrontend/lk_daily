@@ -1,4 +1,9 @@
-import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
+import mongoose, {
+  Schema,
+  type Document,
+  type Model,
+  type Types,
+} from 'mongoose';
 
 export interface IVacation extends Document {
   userId: Types.ObjectId;
@@ -10,11 +15,19 @@ export interface IVacation extends Document {
 
 const vacationSchema = new Schema<IVacation>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
   },
   { timestamps: true },
 );
 
-export const Vacation: Model<IVacation> = mongoose.model<IVacation>('Vacation', vacationSchema);
+export const Vacation: Model<IVacation> = mongoose.model<IVacation>(
+  'Vacation',
+  vacationSchema,
+);
