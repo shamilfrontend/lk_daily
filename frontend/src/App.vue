@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+
 import AppSidebar from '@/components/AppSidebar.vue';
 import { useTeamsStore } from '@/stores/teams';
 import { useAppStore } from '@/stores/app';
@@ -147,12 +148,11 @@ watch(
         </div>
       </main>
     </div>
+
     <Notifications
       position="top right"
-      :duration="3500"
-      :max="4"
-      :ignore-duplicates="true"
-      classes="app-notification"
+      ignore-duplicates
+			width="288px"
     />
   </div>
 </template>

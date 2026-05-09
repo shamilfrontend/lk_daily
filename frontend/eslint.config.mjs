@@ -17,12 +17,6 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/essential'],
   {
-    files: ['**/*.vue'],
-    languageOptions: {
-      parserOptions: { parser: tseslint.parser },
-    },
-  },
-  {
     languageOptions: {
       globals: { ...globals.browser },
     },
@@ -84,6 +78,19 @@ export default tseslint.config(
       'prefer-destructuring': 'warn',
       'vue/multi-word-component-names': 'off',
       'vue/valid-v-for': 'warn',
+    },
+  },
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: { parser: tseslint.parser },
+    },
+    rules: {
+      // SFC: идентификаторы из script setup в шаблоне не видны @typescript-eslint/no-unused-vars;
+      // блок после глобальных rules, иначе flat-config снова включит правило.
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-unused-vars': 'off',
+      'vue/script-setup-uses-vars': 'error',
     },
   },
   eslintConfigPrettier,

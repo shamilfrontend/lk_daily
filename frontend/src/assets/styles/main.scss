@@ -1,3 +1,5 @@
+@use "./vue-notification";
+
 :root {
   --app-bg: #f3f6fb;
   --bg: #f3f6fb;
@@ -312,41 +314,6 @@ a:focus-visible {
   color: #b91c1c;
   font-size: 0.9rem;
   margin: 0;
-}
-
-.app-verify-error {
-  flex-shrink: 0;
-  border-bottom: 1px solid #fecaca;
-  color: #991b1b;
-  font-size: 0.85rem;
-  padding: var(--space-2) var(--space-4);
-  background: #fef2f2;
-}
-
-.app-notification {
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  font-size: var(--font-size-sm);
-  line-height: 1.4;
-}
-
-.vue-notification-group {
-  z-index: 1100;
-}
-
-.app-notification.success {
-  background: var(--ok);
-  border-left-color: #047857;
-}
-
-.app-notification.warn {
-  background: var(--warn);
-  border-left-color: #b45309;
-}
-
-.app-notification.error {
-  background: var(--danger);
-  border-left-color: #991b1b;
 }
 
 #app {

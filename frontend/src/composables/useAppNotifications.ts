@@ -1,4 +1,5 @@
 import { notify } from '@kyvg/vue3-notification';
+
 import { getApiErrorMessage } from '@/utils/apiError';
 
 interface AppNotifyOptions {
