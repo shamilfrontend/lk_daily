@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { api } from '@/api/client';
+import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import type { HistoryRow, Team, User } from '@/types/api';
@@ -138,12 +139,12 @@ onBeforeUnmount(() => {
 
         <div class="field field--sm">
           <label for="fr">С</label>
-          <input id="fr" v-model="from" class="input" type="date" />
+          <AppDatePicker id="fr" v-model="from" />
         </div>
 
         <div class="field field--sm">
           <label for="to">По</label>
-          <input id="to" v-model="to" class="input" type="date" />
+          <AppDatePicker id="to" v-model="to" />
         </div>
 
         <div class="field field--grow">

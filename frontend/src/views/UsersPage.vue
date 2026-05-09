@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -274,7 +275,7 @@ function isBirthdayToday(value?: string): boolean {
       </div>
 
       <label class="field__label" for="uc-birthday">День рождения</label>
-      <input id="uc-birthday" v-model="modalBirthday" type="date" class="input" />
+      <AppDatePicker id="uc-birthday" v-model="modalBirthday" />
 
       <p v-if="modalError" class="error field-grid__full">{{ modalError }}</p>
 

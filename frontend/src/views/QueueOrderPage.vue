@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
+import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useAppStore } from '@/stores/app';
 import { useQueueStore } from '@/stores/queue';
-import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyInfo } from '@/composables/useAppNotifications';
 
-const teams = useTeamsStore();
 const users = useUsersStore();
 const queue = useQueueStore();
 const app = useAppStore();
@@ -50,20 +49,12 @@ const onMaternityLeaveIds = computed(() => {
   return s;
 });
 
-const selectedTeamName = computed(() => teams.teams.find((team) => team._id === teamId.value)?.name ?? '');
-
-onMounted(async () => {
-  try {
-    await teams.fetchTeams();
-    teamId.value = app.selectedTeamId ?? teams.teams[0]?._id ?? '';
-  } catch (e) {
-    error.value = getApiErrorMessage(e, 'Не удалось загрузить команды');
-  }
+onMounted(() => {
+  teamId.value = app.selectedTeamId ?? '';
 });
 
 watch(teamId, async (id) => {
   if (!id) return;
-  app.selectedTeamId = id;
   error.value = null;
   subDate.value = '';
   subUserId.value = '';
@@ -77,6 +68,13 @@ watch(teamId, async (id) => {
     error.value = users.error ?? queue.error ?? getApiErrorMessage(e, 'Не удалось загрузить очередь');
   }
 });
+
+watch(
+  () => app.selectedTeamId,
+  (id) => {
+    teamId.value = id ?? '';
+  },
+);
 
 async function save(): Promise<void> {
   error.value = null;
@@ -162,29 +160,10 @@ async function sortAz(): Promise<void> {
       subtitle="Меняй порядок докладчиков вручную, быстро сортируй по алфавиту и сразу сохраняй результат."
     />
 
-    <div class="card">
-      <div class="toolbar">
-        <div class="field field--grow">
-          <label for="tid">Команда</label>
-          <select id="tid" v-model="teamId" class="select">
-            <option value="" disabled>Выберите команду</option>
-            <option v-for="t in teams.teams" :key="t._id" :value="t._id">{{ t.name }}</option>
-          </select>
-        </div>
-        <div class="field field--grow">
-          <label>Контекст</label>
-          <div class="state-panel state-panel--compact">
-            <p class="state-panel__title">{{ selectedTeamName || 'Команда не выбрана' }}</p>
-            <p class="state-panel__description">Перетаскивай строки, затем сохрани обновлённый порядок.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <AppState
       v-if="!teamId"
-      title="Сначала выбери команду"
-      description="После выбора загрузится текущий порядок выступающих."
+      title="Выбери команду в шапке"
+      description="После выбора команды сверху загрузится текущий порядок выступающих."
       tone="empty"
     />
 
@@ -250,7 +229,7 @@ async function sortAz(): Promise<void> {
       <div class="sub-grid">
         <div class="field">
           <label for="sub-date">Дата (Москва)</label>
-          <input id="sub-date" v-model="subDate" class="input" type="date" :disabled="subBusy" />
+          <AppDatePicker id="sub-date" v-model="subDate" :disabled="subBusy" />
         </div>
         <div class="field field--grow">
           <label for="sub-user">Докладчик</label>
@@ -302,11 +281,11 @@ async function sortAz(): Promise<void> {
       <div class="sub-grid swap-grid">
         <div class="field">
           <label for="swap-a">Дата A (Москва)</label>
-          <input id="swap-a" v-model="swapDateA" class="input" type="date" :disabled="swapBusy" />
+          <AppDatePicker id="swap-a" v-model="swapDateA" :disabled="swapBusy" />
         </div>
         <div class="field">
           <label for="swap-b">Дата B (Москва)</label>
-          <input id="swap-b" v-model="swapDateB" class="input" type="date" :disabled="swapBusy" />
+          <AppDatePicker id="swap-b" v-model="swapDateB" :disabled="swapBusy" />
         </div>
         <div class="field field--action">
           <label class="visually-hidden" for="swap-go">Поменять подмены</label>

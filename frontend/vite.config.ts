@@ -4,6 +4,10 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   plugins: [vue()],
+  optimizeDeps: {
+    /** тяжёлые ESM-зависимости — стабильнее dev / динамические импорты */
+    include: ['@vuepic/vue-datepicker', 'date-fns/locale/ru'],
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

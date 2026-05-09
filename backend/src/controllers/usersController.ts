@@ -37,18 +37,24 @@ function parseBirthdayInput(value: string | null | undefined): Date | undefined 
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
+  const allAccessibleTeams = req.query.accessibleTeams === 'all';
   const allowed = allowedTeamIdSet(req.auth);
-  if (allowed) {
+  const includeInactive = req.query.includeInactive === 'true';
+  const filter: Record<string, unknown> = {};
+
+  if (allAccessibleTeams) {
+    if (allowed) {
+      filter.teamId = { $in: Array.from(allowed) };
+    }
+  } else if (allowed) {
     if (!teamId || !mongoose.isValidObjectId(teamId)) {
       throw new HttpError(400, 'teamId is required');
     }
     if (!allowed.has(teamId)) {
       throw new HttpError(403, 'Forbidden for this team');
     }
-  }
-  const includeInactive = req.query.includeInactive === 'true';
-  const filter: Record<string, unknown> = {};
-  if (teamId) {
+    filter.teamId = teamId;
+  } else if (teamId) {
     if (!mongoose.isValidObjectId(teamId)) {
       throw new HttpError(400, 'Invalid teamId');
     }

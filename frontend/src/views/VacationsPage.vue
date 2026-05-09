@@ -6,7 +6,6 @@ import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useAppStore } from '@/stores/app';
-import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { useVacationsStore } from '@/stores/vacations';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -14,7 +13,6 @@ import { notifyInfo } from '@/composables/useAppNotifications';
 
 const route = useRoute();
 const app = useAppStore();
-const teams = useTeamsStore();
 const users = useUsersStore();
 const vacations = useVacationsStore();
 
@@ -43,18 +41,12 @@ function parseLocalDate(value: string): Date {
   return new Date(year, month - 1, day);
 }
 
-onMounted(async () => {
-  try {
-    await teams.fetchTeams();
-    filterTeamId.value = app.selectedTeamId ?? teams.teams[0]?._id ?? '';
-  } catch (e) {
-    error.value = getApiErrorMessage(e, 'Не удалось загрузить команды');
-  }
+onMounted(() => {
+  filterTeamId.value = app.selectedTeamId ?? '';
 });
 
 watch(filterTeamId, async (id) => {
   if (id) {
-    app.selectedTeamId = id;
     try {
       await users.fetchUsers(id, true);
       const q = route.query.userId;
@@ -66,6 +58,13 @@ watch(filterTeamId, async (id) => {
     }
   }
 });
+
+watch(
+  () => app.selectedTeamId,
+  (id) => {
+    filterTeamId.value = id ?? '';
+  },
+);
 
 watch(filterUserId, () => {
   void loadVacations();
@@ -168,14 +167,6 @@ async function remove(): Promise<void> {
     <div class="card">
       <div class="toolbar">
         <div class="field field--grow">
-          <label for="ft">Команда</label>
-          <select id="ft" v-model="filterTeamId" class="select">
-            <option value="" disabled>Выберите команду</option>
-            <option v-for="t in teams.teams" :key="t._id" :value="t._id">{{ t.name }}</option>
-          </select>
-        </div>
-
-        <div class="field field--grow">
           <label for="fu">Участник</label>
           <select id="fu" v-model="filterUserId" class="select">
             <option value="" disabled>Выберите участника</option>
@@ -185,81 +176,90 @@ async function remove(): Promise<void> {
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-heading">
-        <div>
-          <h2 class="card-heading__title">{{ editingId ? 'Редактирование периода' : 'Новый период' }}</h2>
-          <p class="card-heading__subtitle">
-            {{ selectedUserName || 'Сначала выбери участника' }}. Диапазон сохраняется по локальной дате без сдвига timezone.
-          </p>
+    <AppState
+      v-if="!filterTeamId"
+      title="Выбери команду в шапке"
+      description="После выбора команды сверху станут доступны участники и периоды отпусков."
+      tone="empty"
+    />
+
+    <template v-else>
+      <div class="card">
+        <div class="card-heading">
+          <div>
+            <h2 class="card-heading__title">{{ editingId ? 'Редактирование периода' : 'Новый период' }}</h2>
+            <p class="card-heading__subtitle">
+              {{ selectedUserName || 'Сначала выбери участника' }}. Диапазон сохраняется по локальной дате без сдвига timezone.
+            </p>
+          </div>
         </div>
+
+        <form class="field-grid" @submit.prevent="save">
+          <label class="field__label">Период</label>
+          <VueDatePicker
+            :model-value="selectedRange"
+            range
+            auto-apply
+            locale="ru"
+            format="yyyy-MM-dd"
+            :enable-time-picker="false"
+            :clearable="true"
+            @update:model-value="onRangeChange"
+          />
+
+          <div class="actions-row field-grid__full">
+            <button class="btn btn--primary" type="submit">Сохранить</button>
+            <button v-if="editingId" type="button" class="btn" @click="resetForm">Отмена</button>
+          </div>
+          <p v-if="error" class="error field-grid__full">{{ error }}</p>
+        </form>
       </div>
 
-      <form class="field-grid" @submit.prevent="save">
-        <label class="field__label">Период</label>
-        <VueDatePicker
-          :model-value="selectedRange"
-          range
-          auto-apply
-          locale="ru"
-          format="yyyy-MM-dd"
-          :enable-time-picker="false"
-          :clearable="true"
-          @update:model-value="onRangeChange"
+      <div class="card">
+        <div class="card-heading">
+          <div>
+            <h2 class="card-heading__title">Периоды</h2>
+            <p class="card-heading__subtitle">Все сохранённые периоды по выбранному участнику.</p>
+          </div>
+        </div>
+
+        <AppState
+          v-if="vacations.loading"
+          title="Загружаем отпуска"
+          description="Подтягиваем сохранённые периоды отсутствия."
+          compact
         />
-
-        <div class="actions-row field-grid__full">
-          <button class="btn btn--primary" type="submit">Сохранить</button>
-          <button v-if="editingId" type="button" class="btn" @click="resetForm">Отмена</button>
-        </div>
-        <p v-if="error" class="error field-grid__full">{{ error }}</p>
-      </form>
-    </div>
-
-    <div class="card">
-      <div class="card-heading">
-        <div>
-          <h2 class="card-heading__title">Периоды</h2>
-          <p class="card-heading__subtitle">Все сохранённые периоды по выбранному участнику.</p>
+        <AppState
+          v-else-if="vacations.vacations.length === 0"
+          title="Периодов пока нет"
+          description="Создай первый диапазон, чтобы он появился в списке."
+          tone="empty"
+        />
+        <div v-else class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>С</th>
+                <th>По</th>
+                <th>Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="v in vacations.vacations" :key="v._id">
+                <td>{{ v.startDate.slice(0, 10) }}</td>
+                <td>{{ v.endDate.slice(0, 10) }}</td>
+                <td>
+                  <div class="actions-row">
+                    <button type="button" class="btn" @click="startEdit(v)">Изменить</button>
+                    <button type="button" class="btn btn--danger" @click="openRemoveModal(v._id)">Удалить</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-
-      <AppState
-        v-if="vacations.loading"
-        title="Загружаем отпуска"
-        description="Подтягиваем сохранённые периоды отсутствия."
-        compact
-      />
-      <AppState
-        v-else-if="vacations.vacations.length === 0"
-        title="Периодов пока нет"
-        description="Создай первый диапазон, чтобы он появился в списке."
-        tone="empty"
-      />
-      <div v-else class="table-wrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>С</th>
-              <th>По</th>
-              <th>Действия</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="v in vacations.vacations" :key="v._id">
-              <td>{{ v.startDate.slice(0, 10) }}</td>
-              <td>{{ v.endDate.slice(0, 10) }}</td>
-              <td>
-                <div class="actions-row">
-                  <button type="button" class="btn" @click="startEdit(v)">Изменить</button>
-                  <button type="button" class="btn btn--danger" @click="openRemoveModal(v._id)">Удалить</button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
+    </template>
 
     <AppConfirmModal
       v-model="confirmOpen"

@@ -27,6 +27,24 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
+  /** Все участники по доступным командам (для дашборда: дни рождения и т.п.). */
+  async function fetchUsersAllAccessibleTeams(includeInactive = false): Promise<void> {
+    loading.value = true;
+    error.value = null;
+    try {
+      const { data } = await api.get<User[]>('/users', {
+        params: { accessibleTeams: 'all', includeInactive },
+      });
+      users.value = data;
+    } catch (e) {
+      error.value = getApiErrorMessage(e, 'Не удалось загрузить участников');
+      notifyError(e, 'Не удалось загрузить участников');
+      throw e;
+    } finally {
+      loading.value = false;
+    }
+  }
+
   async function createUser(payload: {
     fullName: string;
     teamId: string;
@@ -75,5 +93,14 @@ export const useUsersStore = defineStore('users', () => {
     }
   }
 
-  return { users, loading, error, fetchUsers, createUser, updateUser, deleteUser };
+  return {
+    users,
+    loading,
+    error,
+    fetchUsers,
+    fetchUsersAllAccessibleTeams,
+    createUser,
+    updateUser,
+    deleteUser,
+  };
 });

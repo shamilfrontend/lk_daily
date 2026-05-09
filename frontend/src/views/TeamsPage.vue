@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
-import { RU_REGIONS } from '@/constants/ruRegions';
 import { useAuthStore } from '@/stores/auth';
 import { useTeamsStore } from '@/stores/teams';
 import type { Team } from '@/types/api';
@@ -11,16 +10,15 @@ import { getApiErrorMessage } from '@/utils/apiError';
 
 const teams = useTeamsStore();
 const auth = useAuthStore();
+const DEFAULT_TEAM_REGION = 'RU-MOW';
 
 const name = ref('');
 const description = ref('');
-const region = ref('');
 const editingId = ref<string | null>(null);
 const error = ref<string | null>(null);
 const confirmOpen = ref(false);
 const confirmLoading = ref(false);
 const pendingRemoval = ref<Team | null>(null);
-const isCustomRegion = computed(() => Boolean(region.value && !RU_REGIONS.some((r) => r.code === region.value)));
 
 onMounted(() => {
   void teams.fetchTeams();
@@ -30,14 +28,12 @@ function startEdit(t: { _id: string; name: string; description?: string; region?
   editingId.value = t._id;
   name.value = t.name;
   description.value = t.description ?? '';
-  region.value = t.region ?? '';
 }
 
 function resetForm(): void {
   editingId.value = null;
   name.value = '';
   description.value = '';
-  region.value = '';
 }
 
 async function save(): Promise<void> {
@@ -47,13 +43,12 @@ async function save(): Promise<void> {
       await teams.updateTeam(editingId.value, {
         name: name.value.trim(),
         description: description.value.trim() || undefined,
-        region: region.value.trim() || undefined,
       });
     } else {
       await teams.createTeam({
         name: name.value.trim(),
         description: description.value.trim() || undefined,
-        region: region.value.trim() || undefined,
+        region: DEFAULT_TEAM_REGION,
       });
     }
     resetForm();
@@ -113,13 +108,6 @@ async function remove(): Promise<void> {
 
         <label class="field__label">Описание</label>
         <input v-model="description" class="input" />
-
-        <label class="field__label">Регион</label>
-        <select v-model="region" class="select">
-          <option value="">Не задан</option>
-          <option v-if="isCustomRegion" :value="region">Кастомный: {{ region }}</option>
-          <option v-for="r in RU_REGIONS" :key="r.code" :value="r.code">{{ r.code }} — {{ r.name }}</option>
-        </select>
 
         <div class="actions-row field-grid__full">
           <button class="btn btn--primary" type="submit">Сохранить</button>

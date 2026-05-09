@@ -146,7 +146,10 @@ export function useHomePage() {
     if (!teamId) return;
 
     try {
-      await Promise.all([queue.loadAll(teamId, UPCOMING_DAYS), users.fetchUsers(teamId, false)]);
+      await Promise.all([
+        queue.loadAll(teamId, UPCOMING_DAYS),
+        users.fetchUsersAllAccessibleTeams(false),
+      ]);
     } catch (error: unknown) {
       pageError.value =
         queue.error ?? users.error ?? getApiErrorMessage(error, 'Не удалось обновить главную страницу');

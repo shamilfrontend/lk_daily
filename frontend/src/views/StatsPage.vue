@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import type { TeamStatsResponse } from '@/types/api';
@@ -73,20 +74,13 @@ watch([from, to], () => {
 
     <div class="card">
       <div class="toolbar">
-        <div class="field field--grow">
-          <label for="st-team">Команда</label>
-          <select id="st-team" v-model="teamId" class="select">
-            <option value="" disabled>Выберите команду</option>
-            <option v-for="t in teams.teams" :key="t._id" :value="t._id">{{ t.name }}</option>
-          </select>
-        </div>
         <div class="field field--sm">
           <label for="st-from">С</label>
-          <input id="st-from" v-model="from" class="input" type="date" />
+          <AppDatePicker id="st-from" v-model="from" />
         </div>
         <div class="field field--sm">
           <label for="st-to">По</label>
-          <input id="st-to" v-model="to" class="input" type="date" />
+          <AppDatePicker id="st-to" v-model="to" />
         </div>
         <div class="field">
           <label>&nbsp;</label>
@@ -98,8 +92,8 @@ watch([from, to], () => {
 
     <AppState
       v-if="!teamId"
-      title="Выберите команду"
-      description="Нужна команда для агрегации по журналу выступлений."
+      title="Нет доступных команд"
+      description="Добавьте команду, чтобы построить статистику."
       tone="empty"
     />
 
