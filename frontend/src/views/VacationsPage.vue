@@ -10,6 +10,7 @@ import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { useVacationsStore } from '@/stores/vacations';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyInfo } from '@/composables/useAppNotifications';
 
 const route = useRoute();
 const app = useAppStore();
@@ -112,6 +113,7 @@ async function save(): Promise<void> {
   error.value = null;
   if (!filterUserId.value) {
     error.value = 'Выберите участника';
+    notifyInfo('Выберите участника перед сохранением отпуска');
     return;
   }
   try {

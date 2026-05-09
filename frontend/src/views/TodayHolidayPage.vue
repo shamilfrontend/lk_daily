@@ -5,6 +5,7 @@ import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import type { TodayHolidaysResponse } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 const AUTO_REFRESH_MS = 5 * 60 * 1000;
 
@@ -15,7 +16,7 @@ const sourceUrl = ref<string>('');
 const fetchedAt = ref<string>('');
 let refreshTimerId: number | null = null;
 
-async function loadTodayHolidays(): Promise<void> {
+async function loadTodayHolidays(silentSuccess = true): Promise<void> {
   isLoading.value = true;
   error.value = null;
   try {
@@ -23,8 +24,12 @@ async function loadTodayHolidays(): Promise<void> {
     items.value = response.data.items;
     sourceUrl.value = response.data.sourceUrl;
     fetchedAt.value = response.data.fetchedAt;
+    if (!silentSuccess) {
+      notifySuccess('Праздники успешно обновлены');
+    }
   } catch (e: unknown) {
     error.value = getApiErrorMessage(e, 'Не удалось загрузить праздники');
+    notifyError(e, 'Не удалось загрузить праздники');
   } finally {
     isLoading.value = false;
   }
@@ -59,7 +64,7 @@ onBeforeUnmount(() => {
       tone="error"
     >
       <template #actions>
-        <button type="button" class="btn btn--primary" :disabled="isLoading" @click="loadTodayHolidays">
+        <button type="button" class="btn btn--primary" :disabled="isLoading" @click="loadTodayHolidays(false)">
           Повторить
         </button>
       </template>
@@ -71,7 +76,7 @@ onBeforeUnmount(() => {
           <h2 class="card-heading__title">Праздники текущего дня</h2>
           <p class="card-heading__subtitle">Источник: {{ sourceUrl || 'kakoysegodnyaprazdnik.ru' }}</p>
         </div>
-        <button type="button" class="btn holiday-refresh-btn" :disabled="isLoading" @click="loadTodayHolidays">
+        <button type="button" class="btn holiday-refresh-btn" :disabled="isLoading" @click="loadTodayHolidays(false)">
           {{ isLoading ? 'Обновляем...' : 'Обновить' }}
         </button>
       </div>

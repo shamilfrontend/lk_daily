@@ -5,6 +5,7 @@ export interface IUser extends Document {
   teamId: Types.ObjectId;
   isActive: boolean;
   onMaternityLeave: boolean;
+  birthday?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -15,6 +16,7 @@ const userSchema = new Schema<IUser>(
     teamId: { type: Schema.Types.ObjectId, ref: 'Team', required: true, index: true },
     isActive: { type: Boolean, default: true },
     onMaternityLeave: { type: Boolean, default: false },
+    birthday: { type: Date, required: false },
   },
   { timestamps: true },
 );

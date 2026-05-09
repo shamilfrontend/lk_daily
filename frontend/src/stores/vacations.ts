@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { api } from '@/api/client';
 import type { Vacation } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 export const useVacationsStore = defineStore('vacations', () => {
   const vacations = ref<Vacation[]>([]);
@@ -17,6 +18,7 @@ export const useVacationsStore = defineStore('vacations', () => {
       vacations.value = data;
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось загрузить отпуска');
+      notifyError(e, 'Не удалось загрузить отпуска');
       throw e;
     } finally {
       loading.value = false;
@@ -24,20 +26,38 @@ export const useVacationsStore = defineStore('vacations', () => {
   }
 
   async function createVacation(payload: { userId: string; startDate: string; endDate: string }): Promise<Vacation> {
-    const { data } = await api.post<Vacation>('/vacations', payload);
-    return data;
+    try {
+      const { data } = await api.post<Vacation>('/vacations', payload);
+      notifySuccess('Период отпуска добавлен');
+      return data;
+    } catch (e) {
+      notifyError(e, 'Не удалось сохранить отпуск');
+      throw e;
+    }
   }
 
   async function updateVacation(
     id: string,
     payload: Partial<{ startDate: string; endDate: string }>,
   ): Promise<Vacation> {
-    const { data } = await api.put<Vacation>(`/vacations/${id}`, payload);
-    return data;
+    try {
+      const { data } = await api.put<Vacation>(`/vacations/${id}`, payload);
+      notifySuccess('Период отпуска обновлен');
+      return data;
+    } catch (e) {
+      notifyError(e, 'Не удалось сохранить отпуск');
+      throw e;
+    }
   }
 
   async function deleteVacation(id: string): Promise<void> {
-    await api.delete(`/vacations/${id}`);
+    try {
+      await api.delete(`/vacations/${id}`);
+      notifySuccess('Период отпуска удален');
+    } catch (e) {
+      notifyError(e, 'Не удалось удалить отпуск');
+      throw e;
+    }
   }
 
   return { vacations, loading, error, fetchVacations, createVacation, updateVacation, deleteVacation };

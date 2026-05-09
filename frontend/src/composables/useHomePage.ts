@@ -5,10 +5,44 @@ import { useQueueStore } from '@/stores/queue';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
-import { moscowTodayString } from '@/utils/dates';
+import { formatDayMonthRu, moscowTodayString } from '@/utils/dates';
+import { notifySuccess } from '@/composables/useAppNotifications';
 
 const UPCOMING_DAYS = 7;
+const UPCOMING_BIRTHDAY_DAYS = 30;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_AVAILABLE_PRESENTERS = 'Нет доступных докладчиков';
+
+interface UpcomingBirthdayRow {
+  userId: string;
+  fullName: string;
+  dayMonth: string;
+  daysLeft: number;
+}
+
+function buildUpcomingBirthdayDate(
+  birthdayRaw: string | undefined,
+  todayUtc: Date,
+): { isoDate: string; daysLeft: number } | null {
+  if (!birthdayRaw) return null;
+  const birthdayDate = new Date(birthdayRaw);
+  if (Number.isNaN(birthdayDate.getTime())) return null;
+
+  const month = birthdayDate.getUTCMonth();
+  const day = birthdayDate.getUTCDate();
+  const thisYear = todayUtc.getUTCFullYear();
+
+  const thisYearBirthday = new Date(Date.UTC(thisYear, month, day));
+  const targetDate = thisYearBirthday < todayUtc ? new Date(Date.UTC(thisYear + 1, month, day)) : thisYearBirthday;
+  const daysLeft = Math.round((targetDate.getTime() - todayUtc.getTime()) / DAY_MS);
+
+  if (daysLeft < 0 || daysLeft > UPCOMING_BIRTHDAY_DAYS) {
+    return null;
+  }
+
+  const targetIso = targetDate.toISOString().slice(0, 10);
+  return { isoDate: targetIso, daysLeft };
+}
 
 export function useHomePage() {
   const app = useAppStore();
@@ -22,6 +56,7 @@ export function useHomePage() {
   const skipWithoutRotation = ref(false);
 
   const today = moscowTodayString();
+  const todayUtcDate = new Date(`${today}T00:00:00.000Z`);
 
   const currentTeam = computed(() => teams.teams.find((team) => team._id === app.selectedTeamId) ?? null);
 
@@ -67,6 +102,32 @@ export function useHomePage() {
   const vacationCount = computed(() => onVacationToday.value.size);
   const nextPresenterCount = computed(() => queue.upcoming.length);
 
+  const upcomingBirthdays = computed<UpcomingBirthdayRow[]>(() => {
+    const rows: UpcomingBirthdayRow[] = [];
+    for (const user of users.users) {
+      const upcoming = buildUpcomingBirthdayDate(user.birthday, todayUtcDate);
+      if (!upcoming) continue;
+      rows.push({
+        userId: user._id,
+        fullName: user.fullName,
+        dayMonth: formatDayMonthRu(upcoming.isoDate),
+        daysLeft: upcoming.daysLeft,
+      });
+    }
+    return rows.sort((a, b) => {
+      if (a.daysLeft !== b.daysLeft) return a.daysLeft - b.daysLeft;
+      return a.fullName.localeCompare(b.fullName, 'ru');
+    });
+  });
+
+  const todayBirthdayNames = computed(() =>
+    upcomingBirthdays.value.filter((item) => item.daysLeft === 0).map((item) => item.fullName),
+  );
+
+  const upcomingBirthdaysNextMonth = computed(() =>
+    upcomingBirthdays.value.filter((item) => item.daysLeft > 0),
+  );
+
   const hasSelectedTeam = computed(() => Boolean(app.selectedTeamId));
   const canRefresh = computed(() => hasSelectedTeam.value && !queue.loading);
 
@@ -107,6 +168,7 @@ export function useHomePage() {
     actionError.value = null;
     try {
       await queue.present(teamId);
+      notifySuccess('Выступление отмечено');
     } catch (error: unknown) {
       actionError.value = getApiErrorMessage(error, 'Не удалось отметить выступление');
     }
@@ -119,6 +181,7 @@ export function useHomePage() {
     actionError.value = null;
     try {
       await queue.skip(teamId, { rotate: !skipWithoutRotation.value });
+      notifySuccess('Участник пропущен');
     } catch (error: unknown) {
       actionError.value = getApiErrorMessage(error, 'Не удалось пропустить участника');
     }
@@ -145,7 +208,10 @@ export function useHomePage() {
     refresh,
     skipWithoutRotation,
     substitutionHint,
+    todayBirthdayNames,
     today,
+    upcomingBirthdays,
+    upcomingBirthdaysNextMonth,
     userMap,
     vacationCount,
   };

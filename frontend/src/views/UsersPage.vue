@@ -10,6 +10,8 @@ import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import type { User } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyInfo } from '@/composables/useAppNotifications';
+import { formatDayMonthRu, moscowTodayString } from '@/utils/dates';
 
 const app = useAppStore();
 const teams = useTeamsStore();
@@ -28,7 +30,9 @@ const modalFullName = ref('');
 const modalTeamId = ref('');
 const modalIsActive = ref(true);
 const modalOnMaternityLeave = ref(false);
+const modalBirthday = ref('');
 const modalError = ref<string | null>(null);
+const today = moscowTodayString();
 
 const filterTeamId = computed<string>(() => app.selectedTeamId ?? '');
 
@@ -64,6 +68,7 @@ watch(participantModalOpen, (open) => {
     modalFullName.value = '';
     modalIsActive.value = true;
     modalOnMaternityLeave.value = false;
+    modalBirthday.value = '';
   }
 });
 
@@ -84,6 +89,7 @@ function openEditModal(u: User): void {
   modalTeamId.value = u.teamId;
   modalIsActive.value = u.isActive;
   modalOnMaternityLeave.value = u.onMaternityLeave === true;
+  modalBirthday.value = normalizeBirthdayInput(u.birthday);
   participantModalOpen.value = true;
 }
 
@@ -102,6 +108,7 @@ async function saveModal(): Promise<void> {
   modalError.value = null;
   if (!modalTeamId.value) {
     modalError.value = 'Выберите команду';
+    notifyInfo('Выберите команду перед сохранением участника');
     return;
   }
   try {
@@ -111,6 +118,7 @@ async function saveModal(): Promise<void> {
         teamId: modalTeamId.value,
         isActive: modalIsActive.value,
         onMaternityLeave: modalOnMaternityLeave.value,
+        birthday: modalBirthday.value || null,
       });
     } else {
       await users.createUser({
@@ -118,6 +126,7 @@ async function saveModal(): Promise<void> {
         teamId: modalTeamId.value,
         isActive: modalIsActive.value,
         onMaternityLeave: modalOnMaternityLeave.value,
+        birthday: modalBirthday.value || null,
       });
     }
     closeParticipantModal();
@@ -150,6 +159,24 @@ async function remove(): Promise<void> {
 
 function goVacations(userId: string): void {
   void router.push({ name: 'admin-vacations', query: { userId } });
+}
+
+function normalizeBirthdayInput(value?: string): string {
+  if (!value) return '';
+  return value.slice(0, 10);
+}
+
+function formatBirthdayForTable(value?: string): string {
+  if (!value) return '—';
+  return formatDayMonthRu(value);
+}
+
+function isBirthdayToday(value?: string): boolean {
+  if (!value) return false;
+  const birthdayDate = new Date(value);
+  if (Number.isNaN(birthdayDate.getTime())) return false;
+  const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
+  return birthdayDate.getUTCMonth() + 1 === todayMonth && birthdayDate.getUTCDate() === todayDay && todayYear > 0;
 }
 </script>
 
@@ -193,6 +220,7 @@ function goVacations(userId: string): void {
               <th>ФИО</th>
               <th>Активен</th>
               <th>В декрете</th>
+              <th>День рождения</th>
               <th>Действия</th>
             </tr>
           </thead>
@@ -201,6 +229,10 @@ function goVacations(userId: string): void {
               <td>{{ u.fullName }}</td>
               <td>{{ u.isActive ? 'Да' : 'Нет' }}</td>
               <td>{{ u.onMaternityLeave ? 'Да' : 'Нет' }}</td>
+              <td :class="{ 'birthday-today': isBirthdayToday(u.birthday) }">
+                <span>{{ formatBirthdayForTable(u.birthday) }}</span>
+                <span v-if="isBirthdayToday(u.birthday)" class="birthday-today__hint">сегодня</span>
+              </td>
               <td>
                 <div class="actions-row">
                   <button type="button" class="btn" @click="openEditModal(u)">Изменить</button>
@@ -240,6 +272,9 @@ function goVacations(userId: string): void {
       <div class="field-grid__check">
         <input id="uc-mat" v-model="modalOnMaternityLeave" type="checkbox" class="checkbox" />
       </div>
+
+      <label class="field__label" for="uc-birthday">День рождения</label>
+      <input id="uc-birthday" v-model="modalBirthday" type="date" class="input" />
 
       <p v-if="modalError" class="error field-grid__full">{{ modalError }}</p>
 
@@ -282,5 +317,16 @@ function goVacations(userId: string): void {
 .users-list-head__subtitle {
   margin-top: 0.35rem;
   color: var(--muted);
+}
+
+.birthday-today {
+  color: #d20f39;
+  font-weight: 700;
+}
+
+.birthday-today__hint {
+  margin-left: 0.4rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
 }
 </style>

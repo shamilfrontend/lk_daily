@@ -321,6 +321,32 @@ a:focus-visible {
   background: #fef2f2;
 }
 
+.app-notification {
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.vue-notification-group {
+  z-index: 1100;
+}
+
+.app-notification.success {
+  background: var(--ok);
+  border-left-color: #047857;
+}
+
+.app-notification.warn {
+  background: var(--warn);
+  border-left-color: #b45309;
+}
+
+.app-notification.error {
+  background: var(--danger);
+  border-left-color: #991b1b;
+}
+
 #app {
   min-height: 100%;
   min-height: 100dvh;

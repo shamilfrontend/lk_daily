@@ -24,7 +24,10 @@ const {
   refresh,
   skipWithoutRotation,
   substitutionHint,
+  todayBirthdayNames,
   today,
+  upcomingBirthdays,
+  upcomingBirthdaysNextMonth,
   userMap,
   vacationCount,
 } = useHomePage();
@@ -82,34 +85,64 @@ const {
       </AppState>
 
       <div v-else class="split-card">
-        <div class="card hero-card">
-          <p class="hero-card__label">Сегодня показывает</p>
-          <p class="hero-card__title">{{ headline }}</p>
-          <p v-if="nonWorkingReason" class="hero-card__reason">{{ nonWorkingReason }}</p>
-          <p v-if="substitutionHint" class="hero-card__reason hero-card__reason--muted">{{ substitutionHint }}</p>
-          <p class="hero-card__hint">Дата: {{ today }} · Прогнозов на ближайшие дни: {{ nextPresenterCount }}</p>
-          <p v-if="actionError" class="error">{{ actionError }}</p>
-          <p v-if="alreadyRecordedHint" class="hero-card__reason hero-card__reason--muted">
-            За сегодня для этой команды отметка уже сделана.
-          </p>
-          <div v-if="auth.isAdmin" class="actions-column">
-            <label class="skip-rotate-label" :class="{ 'skip-rotate-label--disabled': !canAdminAction }">
-              <input v-model="skipWithoutRotation" type="checkbox" :disabled="!canAdminAction" />
-              Пропуск без сдвига очереди
-            </label>
-            <div class="actions-row">
-              <button type="button" class="btn btn--primary" :disabled="!canAdminAction" @click="onPresent">
-                Выступил
-              </button>
-              <button type="button" class="btn" :disabled="!canAdminAction" @click="onSkip">Пропустить</button>
+        <div class="left-column">
+          <div class="card hero-card">
+            <p class="hero-card__label">Сегодня показывает</p>
+            <p class="hero-card__title">{{ headline }}</p>
+            <p v-if="nonWorkingReason" class="hero-card__reason">{{ nonWorkingReason }}</p>
+            <p v-if="substitutionHint" class="hero-card__reason hero-card__reason--muted">{{ substitutionHint }}</p>
+            <p v-if="actionError" class="error">{{ actionError }}</p>
+            <p v-if="alreadyRecordedHint" class="hero-card__reason hero-card__reason--muted">
+              За сегодня для этой команды отметка уже сделана.
+            </p>
+            <div v-if="auth.isAdmin" class="actions-column">
+              <label class="skip-rotate-label" :class="{ 'skip-rotate-label--disabled': !canAdminAction }">
+                <input v-model="skipWithoutRotation" type="checkbox" :disabled="!canAdminAction" />
+                Пропуск без сдвига очереди
+              </label>
+              <div class="actions-row">
+                <button type="button" class="btn btn--primary" :disabled="!canAdminAction" @click="onPresent">
+                  Выступил
+                </button>
+                <button type="button" class="btn" :disabled="!canAdminAction" @click="onSkip">Пропустить</button>
+              </div>
             </div>
+            <AppState
+              v-else
+              title="Админ-действия недоступны"
+              description="Только администратор может отметить выступление или пропустить участника."
+              compact
+            />
           </div>
-          <AppState
-            v-else
-            title="Админ-действия недоступны"
-            description="Только администратор может отметить выступление или пропустить участника."
-            compact
-          />
+
+          <div class="card">
+            <div class="card-heading">
+              <div>
+                <h2 class="card-heading__title">Ближайщие дни рождения</h2>
+              </div>
+            </div>
+
+            <p v-for="fullName in todayBirthdayNames" :key="fullName" class="hero-card__reason birthday-today-text">
+              Сегодня день рождения у {{ fullName }}
+            </p>
+
+            <AppState
+              v-if="upcomingBirthdays.length === 0"
+              title="Нет дней рождения в ближайший месяц"
+              description="Добавь даты рождения участникам, чтобы видеть напоминания."
+              compact
+              tone="empty"
+            />
+            <p v-else-if="upcomingBirthdaysNextMonth.length === 0" class="hero-card__reason hero-card__reason--muted">
+              В ближайшие 30 дней дней рождения нет.
+            </p>
+            <ul v-else class="birthday-list">
+              <li v-for="item in upcomingBirthdaysNextMonth" :key="item.userId" class="birthday-list__item">
+                <span>{{ item.fullName }}</span>
+                <span class="badge">{{ item.dayMonth }}</span>
+              </li>
+            </ul>
+          </div>
         </div>
 
         <div class="card">
@@ -216,6 +249,30 @@ const {
   font-weight: 500;
   color: var(--muted);
   font-size: 0.95rem;
+}
+
+.left-column {
+  display: grid;
+  align-content: start;
+}
+
+.birthday-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.birthday-list__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.birthday-today-text {
+  color: #d20f39;
 }
 
 .actions-column {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { api } from '@/api/client';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 const TOKEN_KEY = 'lk_daily_token';
 
@@ -25,13 +26,19 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(loginStr: string, password: string): Promise<void> {
-    const { data } = await api.post<{ token: string }>('/auth/login', { login: loginStr, password });
-    setToken(data.token);
-    loginName.value = loginStr;
-    verifyError.value = null;
-    role.value = null;
-    teamIds.value = [];
-    await verify();
+    try {
+      const { data } = await api.post<{ token: string }>('/auth/login', { login: loginStr, password });
+      setToken(data.token);
+      loginName.value = loginStr;
+      verifyError.value = null;
+      role.value = null;
+      teamIds.value = [];
+      await verify();
+      notifySuccess('Вход выполнен');
+    } catch (e) {
+      notifyError(e, 'Не удалось выполнить вход');
+      throw e;
+    }
   }
 
   function logout(): void {
@@ -60,6 +67,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
     } catch (e) {
       verifyError.value = getApiErrorMessage(e, 'Сессия недействительна');
+      notifyError(e, 'Сессия недействительна');
       logout();
     }
   }

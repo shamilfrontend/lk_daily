@@ -287,6 +287,11 @@
   resolved "https://registry.yarnpkg.com/@jridgewell/sourcemap-codec/-/sourcemap-codec-1.5.5.tgz#6912b00d2c631c0d15ce1a7ab57cd657f2a8f8ba"
   integrity sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==
 
+"@kyvg/vue3-notification@^3.4.2":
+  version "3.4.2"
+  resolved "https://registry.yarnpkg.com/@kyvg/vue3-notification/-/vue3-notification-3.4.2.tgz#40076a2d86ac148662f59b95cfa2c09b4fb45dca"
+  integrity sha512-CZ2zOdXsbGCtWbdqMgbusKtZTkMT+dYpw9bmAitsdSNHT0knh4njD8X95JIyTMWvNVjhDkFedbkNiZLcPqttwQ==
+
 "@parcel/watcher-android-arm64@2.5.6":
   version "2.5.6"
   resolved "https://registry.yarnpkg.com/@parcel/watcher-android-arm64/-/watcher-android-arm64-2.5.6.tgz#5f32e0dba356f4ac9a11068d2a5c134ca3ba6564"

@@ -12,6 +12,7 @@ const createBody = Joi.object({
   teamId: Joi.string().required(),
   isActive: Joi.boolean().default(true),
   onMaternityLeave: Joi.boolean().default(false),
+  birthday: Joi.string().isoDate().allow(null, ''),
 });
 
 const updateBody = Joi.object({
@@ -19,7 +20,20 @@ const updateBody = Joi.object({
   teamId: Joi.string(),
   isActive: Joi.boolean(),
   onMaternityLeave: Joi.boolean(),
+  birthday: Joi.string().isoDate().allow(null, ''),
 }).min(1);
+
+function parseBirthdayInput(value: string | null | undefined): Date | undefined {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const parsed = new Date(isDateOnly ? `${value}T00:00:00.000Z` : value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(400, 'Invalid birthday');
+  }
+  return parsed;
+}
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
   const teamId = req.query.teamId as string | undefined;
@@ -65,6 +79,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     teamId: team._id,
     isActive: value.isActive !== false,
     onMaternityLeave: value.onMaternityLeave === true,
+    birthday: parseBirthdayInput(value.birthday as string | null | undefined),
   });
   if (user.isActive) {
     await appendUserToQueueEnd(team._id, user._id);
@@ -102,6 +117,9 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   if (value.fullName !== undefined) user.fullName = value.fullName;
   if (value.isActive !== undefined) user.isActive = value.isActive;
   if (value.onMaternityLeave !== undefined) user.onMaternityLeave = value.onMaternityLeave;
+  if (value.birthday !== undefined) {
+    user.birthday = parseBirthdayInput(value.birthday as string | null) ?? undefined;
+  }
 
   await user.save();
 

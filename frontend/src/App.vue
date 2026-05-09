@@ -136,6 +136,13 @@ watch(
         </div>
       </main>
     </div>
+    <Notifications
+      position="top right"
+      :duration="3500"
+      :max="4"
+      :ignore-duplicates="true"
+      classes="app-notification"
+    />
   </div>
 </template>
 

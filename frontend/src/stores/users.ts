@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { api } from '@/api/client';
 import type { User } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 export const useUsersStore = defineStore('users', () => {
   const users = ref<User[]>([]);
@@ -19,6 +20,7 @@ export const useUsersStore = defineStore('users', () => {
       users.value = data;
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось загрузить участников');
+      notifyError(e, 'Не удалось загрузить участников');
       throw e;
     } finally {
       loading.value = false;
@@ -30,9 +32,16 @@ export const useUsersStore = defineStore('users', () => {
     teamId: string;
     isActive?: boolean;
     onMaternityLeave?: boolean;
+    birthday?: string | null;
   }): Promise<User> {
-    const { data } = await api.post<User>('/users', payload);
-    return data;
+    try {
+      const { data } = await api.post<User>('/users', payload);
+      notifySuccess('Участник успешно добавлен');
+      return data;
+    } catch (e) {
+      notifyError(e, 'Не удалось создать участника');
+      throw e;
+    }
   }
 
   async function updateUser(
@@ -42,15 +51,28 @@ export const useUsersStore = defineStore('users', () => {
       teamId: string;
       isActive: boolean;
       onMaternityLeave: boolean;
+      birthday: string | null;
     }>,
   ): Promise<User> {
-    const { data } = await api.put<User>(`/users/${id}`, payload);
-    return data;
+    try {
+      const { data } = await api.put<User>(`/users/${id}`, payload);
+      notifySuccess('Данные участника обновлены');
+      return data;
+    } catch (e) {
+      notifyError(e, 'Не удалось обновить участника');
+      throw e;
+    }
   }
 
   async function deleteUser(id: string): Promise<User> {
-    const { data } = await api.delete<User>(`/users/${id}`);
-    return data;
+    try {
+      const { data } = await api.delete<User>(`/users/${id}`);
+      notifySuccess('Участник деактивирован');
+      return data;
+    } catch (e) {
+      notifyError(e, 'Не удалось деактивировать участника');
+      throw e;
+    }
   }
 
   return { users, loading, error, fetchUsers, createUser, updateUser, deleteUser };

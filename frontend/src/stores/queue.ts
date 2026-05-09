@@ -8,6 +8,7 @@ import type {
   UpcomingRow,
 } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 export const useQueueStore = defineStore('queue', () => {
   const current = ref<{ teamId: string; result: CurrentPresenterResult } | null>(null);
@@ -45,6 +46,7 @@ export const useQueueStore = defineStore('queue', () => {
       substitutions.value = s.data.rows;
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось загрузить очередь');
+      notifyError(e, 'Не удалось загрузить очередь');
       throw e;
     } finally {
       loading.value = false;
@@ -58,6 +60,7 @@ export const useQueueStore = defineStore('queue', () => {
       await loadAll(teamId);
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось отметить выступление');
+      notifyError(e, 'Не удалось отметить выступление');
       throw e;
     } finally {
       loading.value = false;
@@ -71,6 +74,7 @@ export const useQueueStore = defineStore('queue', () => {
       await loadAll(teamId);
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось пропустить участника');
+      notifyError(e, 'Не удалось пропустить участника');
       throw e;
     } finally {
       loading.value = false;
@@ -82,8 +86,10 @@ export const useQueueStore = defineStore('queue', () => {
     try {
       await api.put('/queue/order', { userIds }, { params: { teamId } });
       await loadAll(teamId);
+      notifySuccess('Порядок очереди сохранен');
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось сохранить порядок');
+      notifyError(e, 'Не удалось сохранить порядок');
       throw e;
     }
   }
@@ -96,23 +102,42 @@ export const useQueueStore = defineStore('queue', () => {
       substitutions.value = data.rows;
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось загрузить подмены');
+      notifyError(e, 'Не удалось загрузить подмены');
       throw e;
     }
   }
 
   async function saveSubstitution(teamId: string, moscowDate: string, substituteUserId: string): Promise<void> {
-    await api.post('/queue/substitutions', { teamId, moscowDate, substituteUserId });
-    await fetchSubstitutions(teamId);
+    try {
+      await api.post('/queue/substitutions', { teamId, moscowDate, substituteUserId });
+      await fetchSubstitutions(teamId);
+      notifySuccess('Подмена на день сохранена');
+    } catch (e) {
+      notifyError(e, 'Не удалось сохранить подмену');
+      throw e;
+    }
   }
 
   async function deleteSubstitution(teamId: string, moscowDate: string): Promise<void> {
-    await api.delete('/queue/substitutions', { params: { teamId, moscowDate } });
-    await fetchSubstitutions(teamId);
+    try {
+      await api.delete('/queue/substitutions', { params: { teamId, moscowDate } });
+      await fetchSubstitutions(teamId);
+      notifySuccess('Подмена удалена');
+    } catch (e) {
+      notifyError(e, 'Не удалось удалить подмену');
+      throw e;
+    }
   }
 
   async function swapSubstitutionDays(teamId: string, moscowDateA: string, moscowDateB: string): Promise<void> {
-    await api.post('/queue/substitutions/swap-days', { teamId, moscowDateA, moscowDateB });
-    await loadAll(teamId);
+    try {
+      await api.post('/queue/substitutions/swap-days', { teamId, moscowDateA, moscowDateB });
+      await loadAll(teamId);
+      notifySuccess('Подмены между датами применены');
+    } catch (e) {
+      notifyError(e, 'Не удалось поменять подмены');
+      throw e;
+    }
   }
 
   async function sortAlphabetical(teamId: string): Promise<void> {
@@ -120,8 +145,10 @@ export const useQueueStore = defineStore('queue', () => {
     try {
       await api.post('/queue/sort-alphabetically', {}, { params: { teamId } });
       await loadAll(teamId);
+      notifySuccess('Очередь отсортирована по алфавиту');
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось отсортировать очередь');
+      notifyError(e, 'Не удалось отсортировать очередь');
       throw e;
     }
   }

@@ -8,6 +8,7 @@ import { useQueueStore } from '@/stores/queue';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyInfo } from '@/composables/useAppNotifications';
 
 const teams = useTeamsStore();
 const users = useUsersStore();
@@ -17,7 +18,6 @@ const app = useAppStore();
 const teamId = ref('');
 const localIds = ref<string[]>([]);
 const error = ref<string | null>(null);
-const success = ref<string | null>(null);
 const subDate = ref('');
 const subUserId = ref('');
 const subBusy = ref(false);
@@ -65,7 +65,6 @@ watch(teamId, async (id) => {
   if (!id) return;
   app.selectedTeamId = id;
   error.value = null;
-  success.value = null;
   subDate.value = '';
   subUserId.value = '';
   swapDateA.value = '';
@@ -81,24 +80,26 @@ watch(teamId, async (id) => {
 
 async function save(): Promise<void> {
   error.value = null;
-  success.value = null;
-  if (!teamId.value) return;
+  if (!teamId.value) {
+    notifyInfo('Выберите команду для сохранения порядка');
+    return;
+  }
   try {
     await queue.saveOrder(teamId.value, localIds.value);
-    success.value = 'Порядок сохранён';
   } catch {
     error.value = queue.error ?? 'Не удалось сохранить порядок';
   }
 }
 
 async function addSubstitution(): Promise<void> {
-  if (!teamId.value || !subDate.value || !subUserId.value) return;
+  if (!teamId.value || !subDate.value || !subUserId.value) {
+    notifyInfo('Заполните дату и участника для подмены');
+    return;
+  }
   error.value = null;
-  success.value = null;
   subBusy.value = true;
   try {
     await queue.saveSubstitution(teamId.value, subDate.value, subUserId.value);
-    success.value = 'Подмена на день сохранена';
     subDate.value = '';
     subUserId.value = '';
   } catch (e) {
@@ -111,11 +112,9 @@ async function addSubstitution(): Promise<void> {
 async function removeSubstitutionRow(moscowDate: string): Promise<void> {
   if (!teamId.value) return;
   error.value = null;
-  success.value = null;
   subBusy.value = true;
   try {
     await queue.deleteSubstitution(teamId.value, moscowDate);
-    success.value = 'Подмена удалена';
   } catch (e) {
     error.value = queue.error ?? getApiErrorMessage(e, 'Не удалось удалить подмену');
   } finally {
@@ -124,13 +123,14 @@ async function removeSubstitutionRow(moscowDate: string): Promise<void> {
 }
 
 async function swapSubstitutions(): Promise<void> {
-  if (!teamId.value || !swapDateA.value || !swapDateB.value) return;
+  if (!teamId.value || !swapDateA.value || !swapDateB.value) {
+    notifyInfo('Выберите обе даты для обмена подменами');
+    return;
+  }
   error.value = null;
-  success.value = null;
   swapBusy.value = true;
   try {
     await queue.swapSubstitutionDays(teamId.value, swapDateA.value, swapDateB.value);
-    success.value = 'Подмены между датами применены';
     swapDateA.value = '';
     swapDateB.value = '';
   } catch (e) {
@@ -142,12 +142,13 @@ async function swapSubstitutions(): Promise<void> {
 
 async function sortAz(): Promise<void> {
   error.value = null;
-  success.value = null;
-  if (!teamId.value) return;
+  if (!teamId.value) {
+    notifyInfo('Выберите команду для сортировки очереди');
+    return;
+  }
   try {
     await queue.sortAlphabetical(teamId.value);
     localIds.value = [...queue.order];
-    success.value = 'Очередь отсортирована по алфавиту';
   } catch {
     error.value = queue.error ?? 'Не удалось отсортировать';
   }
@@ -196,8 +197,6 @@ async function sortAz(): Promise<void> {
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
-      <p v-if="success" class="queue-success">{{ success }}</p>
-
       <AppState
         v-if="queue.loading && localIds.length === 0"
         title="Загружаем очередь"

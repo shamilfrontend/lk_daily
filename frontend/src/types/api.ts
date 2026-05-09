@@ -13,6 +13,7 @@ export interface User {
   teamId: string;
   isActive: boolean;
   onMaternityLeave?: boolean;
+  birthday?: string;
 }
 
 export interface Vacation {

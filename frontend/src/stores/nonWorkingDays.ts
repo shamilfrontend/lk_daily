@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { api } from '@/api/client';
 import type { HolidayTransferItem, NonWorkingItem } from '@/types/api';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { notifyError } from '@/composables/useAppNotifications';
 
 export const useNonWorkingDaysStore = defineStore('nonWorkingDays', () => {
   const year = ref(new Date().getFullYear());
@@ -28,6 +29,7 @@ export const useNonWorkingDaysStore = defineStore('nonWorkingDays', () => {
       transfers.value = trRes.data.items;
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось загрузить календарь');
+      notifyError(e, 'Не удалось загрузить календарь');
       throw e;
     } finally {
       loading.value = false;
