@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { VueDatePicker } from '@vuepic/vue-datepicker';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useAppStore } from '@/stores/app';
@@ -227,15 +228,14 @@ async function remove(): Promise<void> {
           />
 
           <div class="actions-row field-grid__full">
-            <button class="btn btn--primary" type="submit">Сохранить</button>
-            <button
+            <AppButton variant="primary" type="submit">Сохранить</AppButton>
+            <AppButton
               v-if="editingId"
               type="button"
-              class="btn"
               @click="resetForm"
             >
               Отмена
-            </button>
+            </AppButton>
           </div>
           <p v-if="error" class="error field-grid__full">{{ error }}</p>
         </form>
@@ -278,16 +278,14 @@ async function remove(): Promise<void> {
                 <td>{{ v.endDate.slice(0, 10) }}</td>
                 <td>
                   <div class="actions-row">
-                    <button type="button" class="btn" @click="startEdit(v)">
-                      Изменить
-                    </button>
-                    <button
+                    <AppButton type="button" @click="startEdit(v)">Изменить</AppButton>
+                    <AppButton
                       type="button"
-                      class="btn btn--danger"
+                      variant="danger"
                       @click="openRemoveModal(v._id)"
                     >
                       Удалить
-                    </button>
+                    </AppButton>
                   </div>
                 </td>
               </tr>

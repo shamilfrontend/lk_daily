@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 import { api } from '@/api/client';
+import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { getApiErrorMessage } from '@/utils/apiError';
@@ -9,23 +10,77 @@ import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 import type { TodayHolidaysResponse } from '@/types/api';
 
-const AUTO_REFRESH_MS = 5 * 60 * 1000;
+interface CachedTodayHolidays {
+  dateKey: string;
+  items: string[];
+  sourceUrl: string;
+  fetchedAt: string;
+}
+
+const HOLIDAYS_CACHE_KEY = 'today-holidays-cache';
 
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const items = ref<string[]>([]);
 const sourceUrl = ref<string>('');
 const fetchedAt = ref<string>('');
-let refreshTimerId: number | null = null;
+let nextDayRefreshTimeoutId: number | null = null;
+
+function getTodayDateKey(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function readTodayHolidaysCache(): CachedTodayHolidays | null {
+  try {
+    const raw = localStorage.getItem(HOLIDAYS_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as Partial<CachedTodayHolidays>;
+    if (
+      typeof parsed.dateKey !== 'string' ||
+      !Array.isArray(parsed.items) ||
+      typeof parsed.sourceUrl !== 'string' ||
+      typeof parsed.fetchedAt !== 'string'
+    ) {
+      return null;
+    }
+    return {
+      dateKey: parsed.dateKey,
+      items: parsed.items.filter((item): item is string => typeof item === 'string'),
+      sourceUrl: parsed.sourceUrl,
+      fetchedAt: parsed.fetchedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeTodayHolidaysCache(payload: CachedTodayHolidays): void {
+  localStorage.setItem(HOLIDAYS_CACHE_KEY, JSON.stringify(payload));
+}
+
+function applyTodayHolidaysData(payload: Omit<CachedTodayHolidays, 'dateKey'>): void {
+  items.value = payload.items;
+  sourceUrl.value = payload.sourceUrl;
+  fetchedAt.value = payload.fetchedAt;
+}
 
 async function loadTodayHolidays(silentSuccess = true): Promise<void> {
   isLoading.value = true;
   error.value = null;
   try {
     const response = await api.get<TodayHolidaysResponse>('/today-holidays');
-    items.value = response.data.items;
-    sourceUrl.value = response.data.sourceUrl;
-    fetchedAt.value = response.data.fetchedAt;
+    const payload = {
+      items: response.data.items,
+      sourceUrl: response.data.sourceUrl,
+      fetchedAt: response.data.fetchedAt,
+    };
+    applyTodayHolidaysData(payload);
+    writeTodayHolidaysCache({
+      dateKey: getTodayDateKey(),
+      ...payload,
+    });
     if (!silentSuccess) {
       notifySuccess('Праздники успешно обновлены');
     }
@@ -38,16 +93,38 @@ async function loadTodayHolidays(silentSuccess = true): Promise<void> {
 }
 
 onMounted(() => {
+  const cached = readTodayHolidaysCache();
+  if (cached && cached.dateKey === getTodayDateKey()) {
+    applyTodayHolidaysData({
+      items: cached.items,
+      sourceUrl: cached.sourceUrl,
+      fetchedAt: cached.fetchedAt,
+    });
+    return;
+  }
+
+  if (cached && cached.dateKey !== getTodayDateKey()) {
+    localStorage.removeItem(HOLIDAYS_CACHE_KEY);
+  }
+
   void loadTodayHolidays();
-  refreshTimerId = window.setInterval(() => {
+
+  const msUntilNextDay = (() => {
+    const now = new Date();
+    const nextDay = new Date(now);
+    nextDay.setHours(24, 0, 0, 0);
+    return nextDay.getTime() - now.getTime();
+  })();
+
+  nextDayRefreshTimeoutId = window.setTimeout(() => {
     void loadTodayHolidays();
-  }, AUTO_REFRESH_MS);
+  }, msUntilNextDay + 1000);
 });
 
 onBeforeUnmount(() => {
-  if (refreshTimerId !== null) {
-    window.clearInterval(refreshTimerId);
-    refreshTimerId = null;
+  if (nextDayRefreshTimeoutId !== null) {
+    window.clearTimeout(nextDayRefreshTimeoutId);
+    nextDayRefreshTimeoutId = null;
   }
 });
 </script>
@@ -57,7 +134,17 @@ onBeforeUnmount(() => {
     <AppPageHeader
       title="Какой сегодня праздник?"
       subtitle="Список праздников на сегодня собирается автоматически с внешнего сайта."
-    />
+		>
+			<template #actions>
+				<AppButton
+					type="button"
+					:disabled="isLoading"
+					@click="loadTodayHolidays(false)"
+				>
+					{{ isLoading ? 'Обновляем...' : 'Обновить данные' }}
+				</AppButton>
+			</template>
+		</AppPageHeader>
 
     <AppState
       v-if="error"
@@ -66,14 +153,14 @@ onBeforeUnmount(() => {
       tone="error"
     >
       <template #actions>
-        <button
+        <AppButton
           type="button"
-          class="btn btn--primary"
+          variant="primary"
           :disabled="isLoading"
           @click="loadTodayHolidays(false)"
         >
           Повторить
-        </button>
+        </AppButton>
       </template>
     </AppState>
 
@@ -85,14 +172,6 @@ onBeforeUnmount(() => {
             Источник: {{ sourceUrl || 'kakoysegodnyaprazdnik.ru' }}
           </p>
         </div>
-        <button
-          type="button"
-          class="btn holiday-refresh-btn"
-          :disabled="isLoading"
-          @click="loadTodayHolidays(false)"
-        >
-          {{ isLoading ? 'Обновляем...' : 'Обновить' }}
-        </button>
       </div>
 
       <div
@@ -137,10 +216,6 @@ onBeforeUnmount(() => {
   color: var(--muted);
 }
 
-.holiday-refresh-btn {
-  margin: 16px 0;
-}
-
 .holiday-loader {
   display: inline-flex;
   align-items: center;
@@ -163,7 +238,7 @@ onBeforeUnmount(() => {
 }
 
 .holiday-list {
-  margin: 0;
+  margin: 16px 0 0;
   padding-left: 1.2rem;
   display: grid;
   gap: 0.45rem;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 
+import AppButton from '@/components/UI/AppButton.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -88,14 +89,13 @@ watch([from, to], () => {
         </div>
         <div class="field">
           <label>&nbsp;</label>
-          <button
+          <AppButton
             type="button"
-            class="btn"
             :disabled="loading || !teamId"
             @click="load"
           >
             Обновить
-          </button>
+          </AppButton>
         </div>
       </div>
       <p v-if="teamId" class="stats-context">
@@ -124,9 +124,7 @@ watch([from, to], () => {
       tone="error"
     >
       <template #actions>
-        <button type="button" class="btn btn--primary" @click="load">
-          Повторить
-        </button>
+        <AppButton type="button" variant="primary" @click="load">Повторить</AppButton>
       </template>
     </AppState>
 

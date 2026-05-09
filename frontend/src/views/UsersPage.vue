@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppButton from '@/components/UI/AppButton.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
@@ -198,9 +199,9 @@ function isBirthdayToday(value?: string): boolean {
       subtitle="Управляй составом команды, активностью и статусом декрета из одного экрана."
     >
       <template #actions>
-        <button type="button" class="btn btn--primary" @click="openCreateModal">
+        <AppButton type="button" variant="primary" @click="openCreateModal">
           Добавить участника
-        </button>
+        </AppButton>
       </template>
     </AppPageHeader>
 
@@ -255,20 +256,16 @@ function isBirthdayToday(value?: string): boolean {
               </td>
               <td>
                 <div class="actions-row">
-                  <button type="button" class="btn" @click="openEditModal(u)">
-                    Изменить
-                  </button>
-                  <button type="button" class="btn" @click="goVacations(u._id)">
-                    Отпуска
-                  </button>
-                  <button
+                  <AppButton type="button" @click="openEditModal(u)">Изменить</AppButton>
+                  <AppButton type="button" @click="goVacations(u._id)">Отпуска</AppButton>
+                  <AppButton
                     type="button"
-                    class="btn btn--danger"
+                    variant="danger"
                     :disabled="!u.isActive"
                     @click="openRemoveModal(u)"
                   >
                     Деактивировать
-                  </button>
+                  </AppButton>
                 </div>
               </td>
             </tr>
@@ -323,10 +320,10 @@ function isBirthdayToday(value?: string): boolean {
         <p v-if="modalError" class="error field-grid__full">{{ modalError }}</p>
 
         <div class="actions-row field-grid__full">
-          <button class="btn btn--primary" type="submit">Сохранить</button>
-          <button type="button" class="btn" @click="closeParticipantModal">
+          <AppButton variant="primary" type="submit">Сохранить</AppButton>
+          <AppButton type="button" @click="closeParticipantModal">
             Отмена
-          </button>
+          </AppButton>
         </div>
       </form>
     </AppModal>

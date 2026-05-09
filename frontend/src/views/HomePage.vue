@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useHomePage } from '@/composables/useHomePage';
@@ -42,14 +43,13 @@ const {
       "
     >
       <template #actions>
-        <button
+        <AppButton
           type="button"
-          class="btn"
           :disabled="!canRefresh"
           @click="refresh"
         >
           Обновить данные
-        </button>
+        </AppButton>
       </template>
     </AppPageHeader>
 
@@ -85,9 +85,7 @@ const {
         tone="error"
       >
         <template #actions>
-          <button type="button" class="btn btn--primary" @click="refresh">
-            Повторить
-          </button>
+          <AppButton type="button" variant="primary" @click="refresh">Повторить</AppButton>
         </template>
       </AppState>
 
@@ -125,22 +123,21 @@ const {
                 Пропуск без сдвига очереди
               </label>
               <div class="actions-row">
-                <button
+                <AppButton
                   type="button"
-                  class="btn btn--primary"
+                  variant="primary"
                   :disabled="!canAdminAction"
                   @click="onPresent"
                 >
                   Выступил
-                </button>
-                <button
+                </AppButton>
+                <AppButton
                   type="button"
-                  class="btn"
                   :disabled="!canAdminAction"
                   @click="onSkip"
                 >
                   Пропустить
-                </button>
+                </AppButton>
               </div>
             </div>
             <AppState

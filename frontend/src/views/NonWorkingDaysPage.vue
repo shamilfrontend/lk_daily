@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 
+import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import ProductionYearCalendar from '@/components/ProductionYearCalendar.vue';
@@ -73,9 +74,7 @@ function typeLabel(t: string): string {
       tone="error"
     >
       <template #actions>
-        <button type="button" class="btn btn--primary" @click="loadYear">
-          Повторить
-        </button>
+        <AppButton type="button" variant="primary" @click="loadYear">Повторить</AppButton>
       </template>
     </AppState>
 

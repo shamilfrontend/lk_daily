@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 
+import AppButton from '@/components/UI/AppButton.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -232,22 +233,21 @@ async function sortAz(): Promise<void> {
         </draggable>
 
         <div class="actions-row queue-actions">
-          <button
+          <AppButton
             type="button"
-            class="btn btn--primary"
+            variant="primary"
             :disabled="queue.loading"
             @click="save"
           >
             Сохранить порядок
-          </button>
-          <button
+          </AppButton>
+          <AppButton
             type="button"
-            class="btn"
             :disabled="queue.loading"
             @click="sortAz"
           >
             Сортировать по алфавиту
-          </button>
+          </AppButton>
         </div>
       </template>
     </div>
@@ -291,15 +291,15 @@ async function sortAz(): Promise<void> {
           <label class="visually-hidden" for="sub-save"
             >Сохранить подмену</label
           >
-          <button
+          <AppButton
             id="sub-save"
             type="button"
-            class="btn btn--primary"
+            variant="primary"
             :disabled="subBusy || !subDate || !subUserId"
             @click="addSubstitution"
           >
             Сохранить
-          </button>
+          </AppButton>
         </div>
       </div>
 
@@ -324,14 +324,14 @@ async function sortAz(): Promise<void> {
               <td>{{ row.moscowDate }}</td>
               <td>{{ row.substituteFullName || row.substituteUserId }}</td>
               <td class="table-actions">
-                <button
+                <AppButton
                   type="button"
-                  class="btn btn--ghost"
+                  class="btn--ghost"
                   :disabled="subBusy"
                   @click="removeSubstitutionRow(row.moscowDate)"
                 >
                   Удалить
-                </button>
+                </AppButton>
               </td>
             </tr>
           </tbody>
@@ -349,15 +349,14 @@ async function sortAz(): Promise<void> {
         </div>
         <div class="field field--action">
           <label class="visually-hidden" for="swap-go">Поменять подмены</label>
-          <button
+          <AppButton
             id="swap-go"
             type="button"
-            class="btn"
             :disabled="swapBusy || !swapDateA || !swapDateB"
             @click="swapSubstitutions"
           >
             Поменять докладчиков между датами
-          </button>
+          </AppButton>
         </div>
       </div>
       <p class="swap-hint">

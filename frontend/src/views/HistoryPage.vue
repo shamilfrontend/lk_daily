@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { api } from '@/api/client';
+import AppButton from '@/components/UI/AppButton.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -215,14 +216,13 @@ onBeforeUnmount(() => {
           </tbody>
         </table>
         <div v-if="hasMore" class="history-more">
-          <button
+          <AppButton
             type="button"
-            class="btn"
             :disabled="loadingMore"
             @click="loadMore"
           >
             {{ loadingMore ? 'Загрузка…' : 'Загрузить ещё' }}
-          </button>
+          </AppButton>
         </div>
       </div>
     </div>

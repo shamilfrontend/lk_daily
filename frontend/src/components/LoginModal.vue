@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import AppButton from '@/components/UI/AppButton.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
@@ -163,13 +164,14 @@ function onClose(): void {
         {{ error }}
       </p>
 
-      <button
-        class="btn btn--primary login-form__submit"
+      <AppButton
+        class="login-form__submit"
+        variant="primary"
         type="submit"
         :disabled="loading"
       >
         {{ loading ? 'Вход…' : 'Войти' }}
-      </button>
+      </AppButton>
     </form>
   </AppModal>
 </template>

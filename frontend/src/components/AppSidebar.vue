@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia';
 import { RouterLink, useRouter } from 'vue-router';
 import LoginModal from '@/components/LoginModal.vue';
+import AppButton from '@/components/UI/AppButton.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 
@@ -112,18 +113,17 @@ function logout(): void {
     <div class="sidebar__footer">
       <template v-if="auth.isAdmin">
         <span class="sidebar__user">{{ auth.loginName ?? 'admin' }}</span>
-        <button type="button" class="btn sidebar__logout" @click="logout">
-          Выйти
-        </button>
+        <AppButton type="button" class="sidebar__logout" @click="logout">Выйти</AppButton>
       </template>
       <template v-else>
-        <button
+        <AppButton
           type="button"
-          class="btn btn--primary sidebar__login"
+          class="sidebar__login"
+          variant="primary"
           @click="ui.openLoginModal()"
         >
           Вход
-        </button>
+        </AppButton>
       </template>
     </div>
 

@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -122,10 +123,10 @@ async function remove(): Promise<void> {
         <input v-model="description" class="input" />
 
         <div class="actions-row field-grid__full">
-          <button class="btn btn--primary" type="submit">Сохранить</button>
-          <button v-if="editingId" type="button" class="btn" @click="resetForm">
+          <AppButton variant="primary" type="submit">Сохранить</AppButton>
+          <AppButton v-if="editingId" type="button" @click="resetForm">
             Отмена
-          </button>
+          </AppButton>
         </div>
         <p v-if="error" class="error field-grid__full">{{ error }}</p>
       </form>
@@ -169,16 +170,14 @@ async function remove(): Promise<void> {
               <td>{{ t.region ?? '—' }}</td>
               <td>
                 <div v-if="auth.isSuperAdmin" class="actions-row">
-                  <button type="button" class="btn" @click="startEdit(t)">
-                    Изменить
-                  </button>
-                  <button
+                  <AppButton type="button" @click="startEdit(t)">Изменить</AppButton>
+                  <AppButton
                     type="button"
-                    class="btn btn--danger"
+                    variant="danger"
                     @click="openRemoveModal(t)"
                   >
                     Удалить
-                  </button>
+                  </AppButton>
                 </div>
                 <span v-else class="teams-readonly">Просмотр</span>
               </td>

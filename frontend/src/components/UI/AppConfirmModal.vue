@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppButton from '@/components/UI/AppButton.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 
 withDefaults(
@@ -36,23 +37,17 @@ const emit = defineEmits<{
     <div class="confirm-modal">
       <p class="confirm-modal__description">{{ description }}</p>
       <div class="confirm-modal__actions">
-        <button
-          type="button"
-          class="btn"
-          :disabled="loading"
-          @click="emit('update:modelValue', false)"
-        >
+        <AppButton type="button" :disabled="loading" @click="emit('update:modelValue', false)">
           {{ cancelLabel }}
-        </button>
-        <button
+        </AppButton>
+        <AppButton
           type="button"
-          class="btn"
-          :class="tone === 'danger' ? 'btn--danger' : 'btn--primary'"
+          :variant="tone === 'danger' ? 'danger' : 'primary'"
           :disabled="loading"
           @click="emit('confirm')"
         >
           {{ loading ? 'Секунду…' : confirmLabel }}
-        </button>
+        </AppButton>
       </div>
     </div>
   </AppModal>
