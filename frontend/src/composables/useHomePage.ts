@@ -8,7 +8,7 @@ import { getApiErrorMessage } from '@/utils/apiError';
 import { formatDayMonthRu, moscowTodayString } from '@/utils/dates';
 import { notifySuccess } from '@/composables/useAppNotifications';
 
-const UPCOMING_DAYS = 7;
+const UPCOMING_DAYS = 60;
 const UPCOMING_BIRTHDAY_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_AVAILABLE_PRESENTERS = 'Нет доступных докладчиков';
@@ -71,6 +71,29 @@ export function useHomePage() {
     const map = new Map<string, string>();
     for (const user of users.users) {
       map.set(user._id, user.fullName);
+    }
+    return map;
+  });
+
+  const queueDateByUserId = computed(() => {
+    const map = new Map<string, string>();
+    for (const row of queue.upcoming) {
+      const presenterId = row.presenter?._id;
+      if (!presenterId || map.has(presenterId)) continue;
+      const [year, month, day] = row.moscowDate.split('-').map(Number);
+      const date = new Date(Date.UTC(year, month - 1, day));
+      if (Number.isNaN(date.getTime())) {
+        map.set(presenterId, formatDayMonthRu(row.moscowDate));
+        continue;
+      }
+      const dayMonth = `${date.toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        timeZone: 'UTC',
+      })} ${date.toLocaleDateString('ru-RU', {
+        month: 'short',
+        timeZone: 'UTC',
+      })}`;
+      map.set(presenterId, dayMonth);
     }
     return map;
   });
@@ -240,6 +263,7 @@ export function useHomePage() {
     today,
     upcomingBirthdays,
     upcomingBirthdaysNextMonth,
+    queueDateByUserId,
     userMap,
     vacationCount,
   };

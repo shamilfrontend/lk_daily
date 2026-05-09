@@ -27,6 +27,7 @@ const {
   todayBirthdayNames,
   upcomingBirthdays,
   upcomingBirthdaysNextMonth,
+  queueDateByUserId,
   userMap,
   vacationCount,
 } = useHomePage();
@@ -193,9 +194,6 @@ const {
           <div class="card-heading">
             <div>
               <h2 class="card-heading__title">Текущая очередь</h2>
-              <p class="card-heading__subtitle">
-                Отмечаем отпуск и декрет прямо в списке.
-              </p>
             </div>
           </div>
 
@@ -214,8 +212,9 @@ const {
           />
           <ol v-else class="queue">
             <li v-for="id in queue.order" :key="id" class="queue__item">
-              <div>
+              <div class="queue__main">
                 <p class="queue__name">{{ userMap.get(id) ?? id }}</p>
+                <p class="queue__date">{{ queueDateByUserId.get(id) ?? '—' }}</p>
               </div>
               <div class="queue__badges">
                 <span v-if="onVacationToday.has(id)" class="badge"
@@ -360,7 +359,7 @@ const {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: 0.9rem 1rem;
+  padding: 0.25rem 1rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   background: var(--surface-muted);
@@ -369,6 +368,12 @@ const {
 .queue__name {
   margin: 0;
   font-weight: 600;
+}
+
+.queue__date {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .queue__badges {

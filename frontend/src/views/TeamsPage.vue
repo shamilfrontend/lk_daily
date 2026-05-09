@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppButton from '@/components/UI/AppButton.vue';
+import AppModal from '@/components/UI/AppModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -15,10 +16,16 @@ const teams = useTeamsStore();
 const auth = useAuthStore();
 const DEFAULT_TEAM_REGION = 'RU-MOW';
 
-const name = ref('');
-const description = ref('');
-const editingId = ref<string | null>(null);
-const error = ref<string | null>(null);
+const createModalOpen = ref(false);
+const editModalOpen = ref(false);
+const createName = ref('');
+const createDescription = ref('');
+const createError = ref<string | null>(null);
+const editingTeamId = ref<string | null>(null);
+const editName = ref('');
+const editDescription = ref('');
+const editError = ref<string | null>(null);
+const pageError = ref<string | null>(null);
 const confirmOpen = ref(false);
 const confirmLoading = ref(false);
 const pendingRemoval = ref<Team | null>(null);
@@ -27,41 +34,67 @@ onMounted(() => {
   void teams.fetchTeams();
 });
 
-function startEdit(t: {
-  _id: string;
-  name: string;
-  description?: string;
-  region?: string;
-}): void {
-  editingId.value = t._id;
-  name.value = t.name;
-  description.value = t.description ?? '';
+const handleAddTeamBtnClick = (): void => {
+  createError.value = null;
+  createModalOpen.value = true;
+};
+
+function resetCreateForm(): void {
+  createName.value = '';
+  createDescription.value = '';
+  createError.value = null;
 }
 
-function resetForm(): void {
-  editingId.value = null;
-  name.value = '';
-  description.value = '';
+function closeCreateModal(): void {
+  createModalOpen.value = false;
+  resetCreateForm();
 }
 
-async function save(): Promise<void> {
-  error.value = null;
+function openEditModal(t: Team): void {
+  editingTeamId.value = t._id;
+  editName.value = t.name;
+  editDescription.value = t.description ?? '';
+  editError.value = null;
+  editModalOpen.value = true;
+}
+
+function resetEditForm(): void {
+  editingTeamId.value = null;
+  editName.value = '';
+  editDescription.value = '';
+  editError.value = null;
+}
+
+function closeEditModal(): void {
+  editModalOpen.value = false;
+  resetEditForm();
+}
+
+async function saveCreate(): Promise<void> {
+  createError.value = null;
   try {
-    if (editingId.value) {
-      await teams.updateTeam(editingId.value, {
-        name: name.value.trim(),
-        description: description.value.trim() || undefined,
-      });
-    } else {
-      await teams.createTeam({
-        name: name.value.trim(),
-        description: description.value.trim() || undefined,
-        region: DEFAULT_TEAM_REGION,
-      });
-    }
-    resetForm();
+    await teams.createTeam({
+      name: createName.value.trim(),
+      description: createDescription.value.trim() || undefined,
+      region: DEFAULT_TEAM_REGION,
+    });
+    closeCreateModal();
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'Не удалось сохранить команду');
+    createError.value = getApiErrorMessage(e, 'Не удалось создать команду');
+  }
+}
+
+async function saveEdit(): Promise<void> {
+  if (!editingTeamId.value) return;
+  editError.value = null;
+  try {
+    await teams.updateTeam(editingTeamId.value, {
+      name: editName.value.trim(),
+      description: editDescription.value.trim() || undefined,
+    });
+    closeEditModal();
+  } catch (e) {
+    editError.value = getApiErrorMessage(e, 'Не удалось сохранить команду');
   }
 }
 
@@ -72,15 +105,15 @@ function openRemoveModal(team: Team): void {
 
 async function remove(): Promise<void> {
   if (!pendingRemoval.value) return;
-  error.value = null;
+  pageError.value = null;
   confirmLoading.value = true;
   try {
     await teams.deleteTeam(pendingRemoval.value._id);
-    if (editingId.value === pendingRemoval.value._id) resetForm();
+    if (editingTeamId.value === pendingRemoval.value._id) closeEditModal();
     confirmOpen.value = false;
     pendingRemoval.value = null;
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'Не удалось удалить команду');
+    pageError.value = getApiErrorMessage(e, 'Не удалось удалить команду');
   } finally {
     confirmLoading.value = false;
   }
@@ -92,7 +125,17 @@ async function remove(): Promise<void> {
     <AppPageHeader
       title="Управление командами"
       subtitle="Создавай команды, меняй их описание и региональные настройки без отдельного мастера."
-    />
+    >
+      <template #actions>
+        <AppButton
+          v-if="auth.isSuperAdmin"
+          variant="primary"
+          @click="handleAddTeamBtnClick"
+        >
+          Добавить команду
+        </AppButton>
+      </template>
+    </AppPageHeader>
 
     <AppState
       v-if="!auth.isSuperAdmin"
@@ -101,36 +144,6 @@ async function remove(): Promise<void> {
       tone="empty"
       compact
     />
-
-    <div v-if="auth.isSuperAdmin" class="card">
-      <div class="card-heading">
-        <div>
-          <h2 class="card-heading__title">
-            {{ editingId ? 'Редактирование команды' : 'Новая команда' }}
-          </h2>
-          <p class="card-heading__subtitle">
-            Регион влияет на производственный календарь и региональные нерабочие
-            дни.
-          </p>
-        </div>
-      </div>
-
-      <form class="field-grid" @submit.prevent="save">
-        <label class="field__label">Название*</label>
-        <input v-model="name" class="input" required />
-
-        <label class="field__label">Описание</label>
-        <input v-model="description" class="input" />
-
-        <div class="actions-row field-grid__full">
-          <AppButton variant="primary" type="submit">Сохранить</AppButton>
-          <AppButton v-if="editingId" type="button" @click="resetForm">
-            Отмена
-          </AppButton>
-        </div>
-        <p v-if="error" class="error field-grid__full">{{ error }}</p>
-      </form>
-    </div>
 
     <div class="card">
       <div class="card-heading">
@@ -142,6 +155,7 @@ async function remove(): Promise<void> {
           </p>
         </div>
       </div>
+      <p v-if="pageError" class="error">{{ pageError }}</p>
 
       <AppState
         v-if="teams.loading"
@@ -170,7 +184,9 @@ async function remove(): Promise<void> {
               <td>{{ t.region ?? '—' }}</td>
               <td>
                 <div v-if="auth.isSuperAdmin" class="actions-row">
-                  <AppButton type="button" @click="startEdit(t)">Изменить</AppButton>
+                  <AppButton type="button" @click="openEditModal(t)">
+                    Изменить
+                  </AppButton>
                   <AppButton
                     type="button"
                     variant="danger"
@@ -186,6 +202,80 @@ async function remove(): Promise<void> {
         </table>
       </div>
     </div>
+
+    <AppModal
+      v-if="auth.isSuperAdmin"
+      v-model="createModalOpen"
+      title="Новая команда"
+      @close="resetCreateForm"
+    >
+      <form class="team-form" @submit.prevent="saveCreate">
+				<div class="team-form__item">
+					<label class="field__label" for="team-create-name">Название*</label>
+					<input
+						id="team-create-name"
+						v-model="createName"
+						class="input"
+						placeholder="Введите название"
+						required
+					/>
+				</div>
+
+				<div class="team-form__item">
+					<label class="field__label" for="team-create-description">Описание</label>
+					<input
+						id="team-create-description"
+						v-model="createDescription"
+						placeholder="Введите описание"
+						class="input"
+					/>
+				</div>
+
+        <p v-if="createError" class="error field-grid__full">{{ createError }}</p>
+
+        <div class="actions-row field-grid__full">
+          <AppButton variant="primary" type="submit">Сохранить</AppButton>
+          <AppButton type="button" @click="closeCreateModal">Отмена</AppButton>
+        </div>
+      </form>
+    </AppModal>
+
+    <AppModal
+      v-if="auth.isSuperAdmin"
+      v-model="editModalOpen"
+      title="Редактирование команды"
+      @close="resetEditForm"
+    >
+      <form class="team-form" @submit.prevent="saveEdit">
+				<div class="team-form__item">
+					<label class="field__label" for="team-edit-name">Название*</label>
+					<input
+						id="team-edit-name"
+						v-model="editName"
+						class="input"
+						placeholder="Введите название"
+						required
+					/>
+				</div>
+
+				<div class="team-form__item">
+					<label class="field__label" for="team-edit-description">Описание</label>
+					<input
+						id="team-edit-description"
+						v-model="editDescription"
+						class="input"
+						placeholder="Введите описание"
+					/>
+				</div>
+
+        <p v-if="editError" class="error field-grid__full">{{ editError }}</p>
+
+        <div class="actions-row field-grid__full">
+          <AppButton variant="primary" type="submit">Сохранить</AppButton>
+          <AppButton type="button" @click="closeEditModal">Отмена</AppButton>
+        </div>
+      </form>
+    </AppModal>
 
     <AppConfirmModal
       v-if="auth.isSuperAdmin"
@@ -205,6 +295,12 @@ async function remove(): Promise<void> {
 </template>
 
 <style scoped lang="scss">
+.team-form {
+	&__item {
+		margin-bottom: 24px;
+	}
+}
+
 .card-heading__title,
 .card-heading__subtitle {
   margin: 0;
