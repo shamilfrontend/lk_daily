@@ -1,211 +1,33 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
-import { useAppStore } from '@/stores/app';
-import { useAuthStore } from '@/stores/auth';
-import { useQueueStore } from '@/stores/queue';
-import { useTeamsStore } from '@/stores/teams';
-import { useUsersStore } from '@/stores/users';
-import { getApiErrorMessage } from '@/utils/apiError';
-import { moscowTodayString, weekdayRu } from '@/utils/dates';
+import { useHomePage } from '@/composables/useHomePage';
 
-const UPCOMING_DAYS = 7;
-const NO_AVAILABLE_PRESENTERS = 'Нет доступных докладчиков';
-
-const app = useAppStore();
-const auth = useAuthStore();
-const queue = useQueueStore();
-const teams = useTeamsStore();
-const users = useUsersStore();
-
-const actionError = ref<string | null>(null);
-const pageError = ref<string | null>(null);
-const exportError = ref<string | null>(null);
-const linkCopied = ref(false);
-const skipWithoutRotation = ref(false);
-
-const today = moscowTodayString();
-
-const currentTeam = computed(() => teams.teams.find((team) => team._id === app.selectedTeamId) ?? null);
-
-const userMap = computed(() => {
-  const m = new Map<string, string>();
-  for (const u of users.users) {
-    m.set(u._id, u.fullName);
-  }
-  return m;
-});
-
-const onVacationToday = computed(() => new Set(queue.insightsToday?.vacationUserIds ?? []));
-
-const onMaternityLeaveIds = computed(() => new Set(queue.insightsToday?.maternityUserIds ?? []));
-
-const headline = computed(() => {
-  const r = queue.current?.result;
-  if (!r) return 'Загрузка…';
-  if (r.kind === 'non_working') return 'Сегодня нерабочий день, созвона нет';
-  if (r.kind === 'no_queue' || r.kind === 'no_available') return NO_AVAILABLE_PRESENTERS;
-  return r.user.fullName;
-});
-
-const nonWorkingReason = computed(() => {
-  const r = queue.current?.result;
-  return r?.kind === 'non_working' ? r.reason : null;
-});
-
-const substitutionHint = computed(() => {
-  const r = queue.current?.result;
-  if (r?.kind === 'ok' && r.substitution) {
-    return `Подмена вместо ${r.substitution.canonicalFullName}`;
-  }
-  return null;
-});
-
-const canAct = computed(() => {
-  if (!auth.isAdmin) return false;
-  const r = queue.current?.result;
-  if (!r || r.kind !== 'ok') return false;
-  if (queue.alreadyRecordedToday) return false;
-  return true;
-});
-
-const alreadyRecordedHint = computed(() => {
-  if (!auth.isAdmin) return false;
-  const r = queue.current?.result;
-  return Boolean(r && r.kind === 'ok' && queue.alreadyRecordedToday);
-});
-
-const queueSize = computed(() => queue.order.length);
-const vacationCount = computed(() => onVacationToday.value.size);
-const nextPresenterCount = computed(() => queue.upcoming.length);
-
-async function refresh(): Promise<void> {
-  actionError.value = null;
-  pageError.value = null;
-  const tid = app.selectedTeamId;
-  if (!tid) return;
-  try {
-    await Promise.all([queue.loadAll(tid, UPCOMING_DAYS), users.fetchUsers(tid, false)]);
-  } catch (e) {
-    pageError.value =
-      queue.error ?? users.error ?? getApiErrorMessage(e, 'Не удалось обновить главную страницу');
-  }
-}
-
-watch(
-  () => app.selectedTeamId,
-  () => {
-    void refresh();
-  },
-  { immediate: true },
-);
-
-async function onPresent(): Promise<void> {
-  const tid = app.selectedTeamId;
-  if (!tid) return;
-  try {
-    await queue.present(tid);
-  } catch (e: unknown) {
-    actionError.value = getApiErrorMessage(e, 'Не удалось отметить выступление');
-  }
-}
-
-async function onSkip(): Promise<void> {
-  const tid = app.selectedTeamId;
-  if (!tid) return;
-  try {
-    await queue.skip(tid, { rotate: !skipWithoutRotation.value });
-  } catch (e: unknown) {
-    actionError.value = getApiErrorMessage(e, 'Не удалось пропустить участника');
-  }
-}
-
-function formatUpcomingPresenter(row: { presenter?: { fullName: string } | null }): string {
-  return row.presenter?.fullName ?? NO_AVAILABLE_PRESENTERS;
-}
-
-function downloadUpcomingCsv(): void {
-  exportError.value = null;
-  if (queue.upcoming.length === 0) {
-    exportError.value = 'Нет данных для экспорта';
-    return;
-  }
-
-  const rows = [
-    ['Дата', 'День недели', 'Докладчик'],
-    ...queue.upcoming.map((row) => [
-      row.moscowDate,
-      weekdayRu(row.moscowDate),
-      formatUpcomingPresenter(row),
-    ]),
-  ];
-
-  const csv = rows
-    .map((row) =>
-      row
-        .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
-        .join(','),
-    )
-    .join('\n');
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const teamSlug = currentTeam.value?.name?.trim().replaceAll(/\s+/g, '-').toLowerCase() || 'team';
-  link.href = url;
-  link.download = `lk-daily-${teamSlug}-upcoming.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-function buildApiHref(pathWithQuery: string): string {
-  const base = import.meta.env.VITE_API_URL ?? '/api';
-  if (base.startsWith('http')) {
-    return `${base.replace(/\/$/, '')}${pathWithQuery}`;
-  }
-  return new URL(`${base.replace(/\/$/, '')}${pathWithQuery}`, window.location.origin).href;
-}
-
-function downloadUpcomingIcs(): void {
-  exportError.value = null;
-  const tid = app.selectedTeamId;
-  if (!tid) {
-    exportError.value = 'Команда не выбрана';
-    return;
-  }
-  const href = buildApiHref(
-    `/queue/upcoming/export/ics?teamId=${encodeURIComponent(tid)}&days=${UPCOMING_DAYS}`,
-  );
-  const a = document.createElement('a');
-  a.href = href;
-  a.rel = 'noopener';
-  a.download = '';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-async function copyTeamDeepLink(): Promise<void> {
-  exportError.value = null;
-  const tid = app.selectedTeamId;
-  if (!tid) {
-    exportError.value = 'Команда не выбрана';
-    return;
-  }
-  try {
-    const url = new URL(window.location.pathname, window.location.origin);
-    url.searchParams.set('teamId', tid);
-    await navigator.clipboard.writeText(url.toString());
-    linkCopied.value = true;
-    window.setTimeout(() => {
-      linkCopied.value = false;
-    }, 2000);
-  } catch {
-    exportError.value = 'Не удалось скопировать ссылку';
-  }
-}
+const {
+  actionError,
+  alreadyRecordedHint,
+  app,
+  auth,
+  canAdminAction,
+  canRefresh,
+  currentTeam,
+  headline,
+  nextPresenterCount,
+  nonWorkingReason,
+  onMaternityLeaveIds,
+  onPresent,
+  onSkip,
+  onVacationToday,
+  pageError,
+  queue,
+  queueSize,
+  refresh,
+  skipWithoutRotation,
+  substitutionHint,
+  today,
+  userMap,
+  vacationCount,
+} = useHomePage();
 </script>
 
 <template>
@@ -219,7 +41,7 @@ async function copyTeamDeepLink(): Promise<void> {
       "
     >
       <template #actions>
-        <button type="button" class="btn" :disabled="!app.selectedTeamId || queue.loading" @click="refresh">
+        <button type="button" class="btn" :disabled="!canRefresh" @click="refresh">
           Обновить данные
         </button>
       </template>
@@ -233,24 +55,6 @@ async function copyTeamDeepLink(): Promise<void> {
     />
 
     <template v-else>
-      <div class="home-tips card" role="note">
-        <p class="home-tips__title">Подсказки</p>
-        <ul class="home-tips__list">
-          <li>
-            <strong>Ссылка на команду.</strong> Кнопка «Ссылка на команду» копирует адрес с параметром
-            <code class="home-tips__code">?teamId=…</code> — по нему сразу открывается выбранная команда.
-          </li>
-          <li>
-            <strong>Прогноз и календарь.</strong> Таблица ниже — только рабочие дни по производственному календарю
-            (федеральные, региональные и свои исключения). ICS подтягивает прогноз с сервера через API.
-          </li>
-          <li>
-            <strong>Для администратора.</strong> Отметка «Выступил» / «Пропустить» и порядок очереди — в разделах
-            «Очередь» и связанных страницах после входа.
-          </li>
-        </ul>
-      </div>
-
       <div class="metric-grid">
         <div class="metric-card">
           <p class="metric-card__label">Команда</p>
@@ -289,15 +93,15 @@ async function copyTeamDeepLink(): Promise<void> {
             За сегодня для этой команды отметка уже сделана.
           </p>
           <div v-if="auth.isAdmin" class="actions-column">
-            <label class="skip-rotate-label" :class="{ 'skip-rotate-label--disabled': !canAct || queue.loading }">
-              <input v-model="skipWithoutRotation" type="checkbox" :disabled="!canAct || queue.loading" />
+            <label class="skip-rotate-label" :class="{ 'skip-rotate-label--disabled': !canAdminAction }">
+              <input v-model="skipWithoutRotation" type="checkbox" :disabled="!canAdminAction" />
               Пропуск без сдвига очереди
             </label>
             <div class="actions-row">
-              <button type="button" class="btn btn--primary" :disabled="!canAct || queue.loading" @click="onPresent">
+              <button type="button" class="btn btn--primary" :disabled="!canAdminAction" @click="onPresent">
                 Выступил
               </button>
-              <button type="button" class="btn" :disabled="!canAct || queue.loading" @click="onSkip">Пропустить</button>
+              <button type="button" class="btn" :disabled="!canAdminAction" @click="onSkip">Пропустить</button>
             </div>
           </div>
           <AppState
@@ -343,67 +147,6 @@ async function copyTeamDeepLink(): Promise<void> {
         </div>
       </div>
 
-      <div v-if="!pageError" class="card">
-        <div class="card-heading card-heading--with-actions">
-          <div>
-            <h2 class="card-heading__title">Ближайшие рабочие дни</h2>
-            <p class="card-heading__subtitle">
-              В таблице только рабочие дни по производственному календарю с учетом федеральных, региональных и
-              пользовательских исключений.
-            </p>
-          </div>
-          <div class="card-heading__btn-row">
-            <button type="button" class="btn" :disabled="queue.loading || !app.selectedTeamId" @click="copyTeamDeepLink">
-              {{ linkCopied ? 'Ссылка скопирована' : 'Ссылка на команду' }}
-            </button>
-            <button type="button" class="btn" :disabled="queue.loading" @click="downloadUpcomingCsv">
-              Экспорт прогноза (CSV)
-            </button>
-            <button type="button" class="btn" :disabled="queue.loading || !app.selectedTeamId" @click="downloadUpcomingIcs">
-              Календарь (ICS)
-            </button>
-          </div>
-        </div>
-
-        <p v-if="exportError" class="error">{{ exportError }}</p>
-
-        <AppState
-          v-if="queue.loading"
-          title="Загружаем прогноз"
-          description="Собираем ближайшие рабочие даты и очередность выступлений."
-          compact
-        />
-        <AppState
-          v-else-if="queue.upcoming.length === 0"
-          title="Нет данных для прогноза"
-          description="Проверь настройки очереди и рабочие дни для выбранной команды."
-          tone="empty"
-          compact
-        />
-        <div v-else class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Дата</th>
-                <th>День недели</th>
-                <th>Докладчик</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in queue.upcoming" :key="row.moscowDate">
-                <td>{{ row.moscowDate }}</td>
-                <td>{{ weekdayRu(row.moscowDate) }}</td>
-                <td>
-                  {{ formatUpcomingPresenter(row) }}
-                  <span v-if="row.substitution" class="table-subhint"
-                    >вместо {{ row.substitution.canonicalFullName }}</span
-                  >
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
     </template>
   </section>
 </template>
@@ -514,20 +257,6 @@ async function copyTeamDeepLink(): Promise<void> {
   font-weight: 500;
   color: var(--muted);
   font-size: 0.95rem;
-}
-
-.table-subhint {
-  display: block;
-  margin-top: 0.2rem;
-  font-size: var(--font-size-xs);
-  color: var(--muted);
-}
-
-.card-heading__btn-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: flex-end;
 }
 
 .actions-column {
