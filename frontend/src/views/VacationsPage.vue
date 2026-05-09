@@ -161,7 +161,6 @@ async function remove(): Promise<void> {
     <AppPageHeader
       title="Отпуска"
       subtitle="Планируй периоды отсутствия участников и сразу проверяй историю сохранённых дат."
-      eyebrow="Admin"
     />
 
     <div class="card">

@@ -124,7 +124,6 @@ onBeforeUnmount(() => {
     <AppPageHeader
       title="История"
       subtitle="Фильтруй журнал выступлений по команде, периоду и статусу без переходов на отдельные экраны."
-      eyebrow="Archive"
     />
 
     <div class="card">

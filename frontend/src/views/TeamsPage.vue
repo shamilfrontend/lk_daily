@@ -89,7 +89,6 @@ async function remove(): Promise<void> {
     <AppPageHeader
       title="Управление командами"
       subtitle="Создавай команды, меняй их описание и региональные настройки без отдельного мастера."
-      eyebrow="Admin"
     />
 
     <AppState

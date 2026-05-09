@@ -222,7 +222,6 @@ async function confirmCsvImport(): Promise<void> {
     <AppPageHeader
       title="Участники"
       subtitle="Управляй составом команды, активностью и статусом декрета из одного экрана."
-      eyebrow="Admin"
     >
       <template #actions>
         <button type="button" class="btn btn--primary" @click="openCreateModal">Добавить участника</button>

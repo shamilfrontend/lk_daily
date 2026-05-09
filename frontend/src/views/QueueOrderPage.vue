@@ -159,7 +159,6 @@ async function sortAz(): Promise<void> {
     <AppPageHeader
       title="Настройка очереди"
       subtitle="Меняй порядок докладчиков вручную, быстро сортируй по алфавиту и сразу сохраняй результат."
-      eyebrow="Admin"
     />
 
     <div class="card">

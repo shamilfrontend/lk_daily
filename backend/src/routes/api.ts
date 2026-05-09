@@ -9,6 +9,7 @@ import * as queueController from '../controllers/queueController.js';
 import * as queueSubstitutionsController from '../controllers/queueSubstitutionsController.js';
 import * as statsController from '../controllers/statsController.js';
 import * as teamsController from '../controllers/teamsController.js';
+import * as todayHolidaysController from '../controllers/todayHolidaysController.js';
 import * as usersController from '../controllers/usersController.js';
 import * as vacationsController from '../controllers/vacationsController.js';
 import { env } from '../config/env.js';
@@ -64,6 +65,7 @@ apiRouter.delete('/vacations/:id', asyncHandler(requireAdmin), asyncHandler(vaca
 apiRouter.get('/non-working-days', asyncHandler(nonWorkingDaysController.listNonWorkingDays));
 
 apiRouter.get('/holiday-transfers', asyncHandler(holidayTransfersController.listHolidayTransfers));
+apiRouter.get('/today-holidays', asyncHandler(todayHolidaysController.listTodayHolidays));
 
 apiRouter.get('/stats/team', asyncHandler(requireAdmin), asyncHandler(statsController.getTeamStats));
 

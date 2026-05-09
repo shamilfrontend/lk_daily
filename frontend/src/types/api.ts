@@ -39,6 +39,12 @@ export interface HolidayTransferItem {
   description?: string;
 }
 
+export interface TodayHolidaysResponse {
+  items: string[];
+  fetchedAt: string;
+  sourceUrl: string;
+}
+
 export type CurrentPresenterResult =
   | { kind: 'non_working'; reason: string }
   | { kind: 'no_queue' }

@@ -25,6 +25,15 @@ const router = createRouter({
       component: () => import('@/views/HistoryPage.vue'),
     },
     {
+      path: '/today-holiday',
+      name: 'today-holiday',
+      meta: {
+        pageTitle: 'Какой сегодня праздник?',
+        pageDescription: 'Список праздников на текущий день из внешнего источника.',
+      },
+      component: () => import('@/views/TodayHolidayPage.vue'),
+    },
+    {
       path: '/admin/teams',
       name: 'admin-teams',
       meta: {

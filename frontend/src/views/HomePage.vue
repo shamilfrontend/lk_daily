@@ -217,7 +217,6 @@ async function copyTeamDeepLink(): Promise<void> {
           ? `Команда: ${currentTeam.name}. Здесь собраны текущий докладчик, очередь и прогноз ближайших рабочих дней.`
           : 'Выбери команду в верхней панели, чтобы увидеть текущего докладчика, очередь и прогноз.'
       "
-      eyebrow="Dashboard"
     >
       <template #actions>
         <button type="button" class="btn" :disabled="!app.selectedTeamId || queue.loading" @click="refresh">

@@ -40,6 +40,9 @@ function logout(): void {
 
     <nav class="sidebar__nav">
       <RouterLink class="sidebar__link" to="/" @click="emit('navigate')">Сегодня</RouterLink>
+      <RouterLink class="sidebar__link" to="/today-holiday" @click="emit('navigate')">
+        Какой сегодня праздник?
+      </RouterLink>
       <RouterLink class="sidebar__link" to="/holidays" @click="emit('navigate')">Нерабочие дни</RouterLink>
       <RouterLink class="sidebar__link" to="/history" @click="emit('navigate')">История</RouterLink>
 
