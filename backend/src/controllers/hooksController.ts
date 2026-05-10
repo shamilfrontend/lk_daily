@@ -41,6 +41,7 @@ export async function notifyToday(req: Request, res: Response): Promise<void> {
   if (error) {
     throw new HttpError(400, error.message);
   }
+
   const teamId = value.teamId as string;
   if (!mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid teamId');
@@ -53,6 +54,7 @@ export async function notifyToday(req: Request, res: Response): Promise<void> {
 
   const current = await getCurrentPresenter(teamId);
   let text: string;
+
   if (current.kind === 'non_working') {
     text = `LK Daily — ${team.name}: сегодня нерабочий день (${current.reason}).`;
   } else if (current.kind === 'no_queue' || current.kind === 'no_available') {

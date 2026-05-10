@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { pathToFileURL } from 'node:url';
+
 import { env } from '../config/env.js';
 import { Admin } from '../models/Admin.js';
 import { logger } from '../utils/logger.js';
@@ -15,6 +16,7 @@ export async function seedAdminIfEmpty(opts?: {
     }
     return false;
   }
+
   const passwordHash = await bcrypt.hash(env.adminPassword, 10);
   await Admin.create({ login: env.adminLogin, passwordHash });
   logger.info('Seeded default admin user from environment variables');

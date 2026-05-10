@@ -140,10 +140,12 @@ export async function deleteSubstitution(
   if (!moscowDate || !moscowDateRe.test(moscowDate)) {
     throw new HttpError(400, 'Invalid or missing moscowDate');
   }
+
   const r = await QueueDaySubstitution.deleteOne({
     teamId: new mongoose.Types.ObjectId(teamId),
     moscowDate,
   });
+
   res.json({ ok: true, deleted: r.deletedCount > 0 });
 }
 
@@ -155,6 +157,7 @@ export async function swapSubstitutionDays(
   if (error) {
     throw new HttpError(400, error.message);
   }
+
   const teamId = value.teamId as string;
   const moscowDateA = value.moscowDateA as string;
   const moscowDateB = value.moscowDateB as string;
@@ -162,6 +165,7 @@ export async function swapSubstitutionDays(
     throw new HttpError(400, 'Invalid teamId');
   }
   assertTeamAccess(req.auth, teamId);
+
   try {
     await applySubstitutionDaySwap(teamId, moscowDateA, moscowDateB);
   } catch (e) {

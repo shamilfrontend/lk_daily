@@ -41,11 +41,13 @@ function ensureSafeProductionConfig(params: {
       'In production JWT_SECRET must be set and at least 32 chars long',
     );
   }
+
   if (adminLogin === 'admin' || adminPassword === 'admin123') {
     throw new Error(
       'In production ADMIN_LOGIN/ADMIN_PASSWORD must not use default values',
     );
   }
+
   if (corsOrigins.length === 0) {
     throw new Error(
       'In production CORS_ORIGINS must contain at least one origin',

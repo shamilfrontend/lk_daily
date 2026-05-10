@@ -123,6 +123,7 @@ function onUpdateModelValue(value: unknown): void {
 const minDate = computed(() =>
   props.min?.trim() ? parseToDate(props.min) : undefined,
 );
+
 const maxDate = computed(() =>
   props.max?.trim() ? parseToDate(props.max) : undefined,
 );

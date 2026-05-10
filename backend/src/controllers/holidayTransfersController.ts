@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+
 import { HttpError } from '../middlewares/errorHandler.js';
 import { HolidayTransfer } from '../models/HolidayTransfer.js';
 import { utcDateToMoscowDateString } from '../utils/dateHelpers.js';
@@ -16,6 +17,7 @@ export async function listHolidayTransfers(
   const rows = await HolidayTransfer.find({ year })
     .sort({ fromDate: 1, toDate: 1 })
     .lean();
+
   res.json({
     year,
     items: rows.map((row) => ({

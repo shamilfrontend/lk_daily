@@ -40,6 +40,7 @@ export async function getTeamStats(req: Request, res: Response): Promise<void> {
   if (error) {
     throw new HttpError(400, error.message);
   }
+
   const teamId = value.teamId as string;
   if (!mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid teamId');
@@ -84,6 +85,7 @@ export async function getTeamStats(req: Request, res: Response): Promise<void> {
     if (!uid) {
       continue;
     }
+
     let slot = byUser.get(uid);
     if (!slot) {
       slot = { presented: 0, skipped: 0, lastMoscowDate: null };
@@ -94,6 +96,7 @@ export async function getTeamStats(req: Request, res: Response): Promise<void> {
     } else if (row.status === 'skipped') {
       slot.skipped += 1;
     }
+
     const d = utcDateToMoscowDateString(row.date as Date);
     if (!slot.lastMoscowDate) {
       slot.lastMoscowDate = d;
@@ -103,6 +106,7 @@ export async function getTeamStats(req: Request, res: Response): Promise<void> {
   const userIds = [...byUser.keys()].map(
     (id) => new mongoose.Types.ObjectId(id),
   );
+
   const userDocs =
     userIds.length > 0
       ? await User.find({ _id: { $in: userIds } })

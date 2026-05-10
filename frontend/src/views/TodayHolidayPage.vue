@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
   padding-left: 1.2rem;
   display: grid;
   gap: 0.45rem;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: 1fr;
 }
 
 .holiday-list__item {

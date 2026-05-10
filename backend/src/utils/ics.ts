@@ -1,3 +1,11 @@
+export type IcsEventInput = {
+  uid: string;
+  /** YYYYMMDD */
+  dateYmd: string;
+  summary: string;
+  description?: string;
+};
+
 /** Экранирование текста для iCalendar (RFC 5545). */
 export function icsEscapeText(text: string): string {
   return text
@@ -21,14 +29,6 @@ export function foldIcsLine(line: string): string {
   parts.push(rest);
   return parts.join('\r\n');
 }
-
-export type IcsEventInput = {
-  uid: string;
-  /** YYYYMMDD */
-  dateYmd: string;
-  summary: string;
-  description?: string;
-};
 
 export function buildIcsCalendar(
   prodid: string,

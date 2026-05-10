@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
+
 import { env } from '../config/env.js';
 import { PresentationLog } from '../models/PresentationLog.js';
 import { Team } from '../models/Team.js';
@@ -9,16 +10,12 @@ import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';
 import { QueueOrder } from '../models/QueueOrder.js';
 import { replaceQueueOrder } from '../services/queueService.js';
-import {
-  parseMoscowDayInput,
-  utcDateToMoscowDateString,
-} from '../utils/dateHelpers.js';
+import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
 import { logger } from '../utils/logger.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-/** Корень репозитория: backend/src/seed → ../../../data.json */
-const DEFAULT_DATA_PATH = path.resolve(__dirname, '../../../data.json');
+const DEFAULT_DATA_PATH = path.resolve(__dirname, './data.json');
 
 interface SeedVacation {
   start: string;
@@ -41,12 +38,10 @@ interface SeedData {
   teams: SeedTeam[];
 }
 
-function parseArgs(argv: string[]): {
-  force: boolean;
-  dataPath: string | undefined;
-} {
+function parseArgs(argv: string[]): { force: boolean; dataPath: string | undefined; } {
   let force = false;
   const positional: string[] = [];
+
   for (const a of argv) {
     if (a === '--force') {
       force = true;
@@ -54,6 +49,7 @@ function parseArgs(argv: string[]): {
       positional.push(a);
     }
   }
+
   return { force, dataPath: positional[0] };
 }
 
@@ -63,10 +59,12 @@ function loadSeedData(filePath: string): SeedData {
   if (!data || typeof data !== 'object' || !('teams' in data)) {
     throw new Error('Invalid seed file: expected { teams: [...] }');
   }
+
   const { teams } = data as { teams: unknown };
   if (!Array.isArray(teams)) {
     throw new Error('Invalid seed file: teams must be an array');
   }
+
   for (const t of teams) {
     if (!t || typeof t !== 'object') {
       throw new Error('Invalid seed file: each team must be an object');
@@ -75,11 +73,13 @@ function loadSeedData(filePath: string): SeedData {
     if (typeof team.name !== 'string' || !team.name.trim()) {
       throw new Error('Invalid seed file: team.name is required');
     }
+
     if (!Array.isArray(team.members)) {
       throw new Error(
         `Invalid seed file: team "${team.name}" must have members array`,
       );
     }
+
     for (const m of team.members) {
       if (!m || typeof m !== 'object') {
         throw new Error('Invalid seed file: each member must be an object');
@@ -114,6 +114,7 @@ function loadSeedData(filePath: string): SeedData {
       }
     }
   }
+
   return data as SeedData;
 }
 

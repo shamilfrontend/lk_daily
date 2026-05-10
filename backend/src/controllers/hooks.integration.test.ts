@@ -7,11 +7,11 @@ import {
   it,
   vi,
 } from 'vitest';
+import bcrypt from 'bcryptjs';
 import type { Express } from 'express';
-import request from 'supertest';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
-import bcrypt from 'bcryptjs';
+import request from 'supertest';
 
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';

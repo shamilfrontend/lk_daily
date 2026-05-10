@@ -6,11 +6,13 @@ import type {
   NonWorkingItemType,
 } from '@/types/api';
 
-const props = defineProps<{
-  year: number;
-  items: NonWorkingItem[];
-  transfers: HolidayTransferItem[];
-}>();
+interface ProductionYearCalendarProps {
+	year: number;
+	items: NonWorkingItem[];
+	transfers: HolidayTransferItem[];
+}
+
+const props = defineProps<ProductionYearCalendarProps>();
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
 const MONTHS = [

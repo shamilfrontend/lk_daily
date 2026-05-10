@@ -6,11 +6,12 @@ import AppModal from '@/components/UI/AppModal.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 
-const props = defineProps<{
-  modelValue: boolean;
-  /** Подсказка под заголовком (например, при переходе в админку без сессии) */
-  hint?: string | null;
-}>();
+interface LoginModalProps {
+	modelValue: boolean;
+	hint?: string | null;
+}
+
+const props = defineProps<LoginModalProps>();
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];

@@ -214,7 +214,15 @@ const {
             <li v-for="id in queue.order" :key="id" class="queue__item">
               <div class="queue__main">
                 <p class="queue__name">{{ userMap.get(id) ?? id }}</p>
-                <p class="queue__date">{{ queueDateByUserId.get(id) ?? '—' }}</p>
+                <p class="queue__date">
+                  {{
+                    onMaternityLeaveIds.has(id)
+                      ? 'в декрете'
+                      : onVacationToday.has(id)
+                        ? 'в отпуске'
+                        : queueDateByUserId.get(id) ?? '—'
+                  }}
+                </p>
               </div>
               <div class="queue__badges">
                 <span v-if="onVacationToday.has(id)" class="badge"

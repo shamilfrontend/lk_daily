@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-extraneous-dependencies
 import { expect, test, type Page } from '@playwright/test';
 
 /** Заголовок страницы в контентной области (AppPageHeader → h1.page-title). */

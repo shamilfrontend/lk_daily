@@ -2,24 +2,23 @@
 import AppButton from '@/components/UI/AppButton.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 
-withDefaults(
-  defineProps<{
-    modelValue: boolean;
-    title: string;
-    description?: string;
-    confirmLabel?: string;
-    cancelLabel?: string;
-    tone?: 'default' | 'danger';
-    loading?: boolean;
-  }>(),
-  {
-    description: '',
-    confirmLabel: 'Подтвердить',
-    cancelLabel: 'Отмена',
-    tone: 'default',
-    loading: false,
-  },
-);
+interface AppConfirmModalProps {
+	modelValue: boolean;
+	title: string;
+	description?: string;
+	confirmLabel?: string;
+	cancelLabel?: string;
+	tone?: 'default' | 'danger';
+	loading?: boolean;
+}
+
+withDefaults(defineProps<AppConfirmModalProps>(), {
+	description: '',
+	confirmLabel: 'Подтвердить',
+	cancelLabel: 'Отмена',
+	tone: 'default',
+	loading: false,
+});
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];

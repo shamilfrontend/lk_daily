@@ -1,4 +1,5 @@
 import mongoose, { Schema, type Document, type Model } from 'mongoose';
+
 import { invalidateCalendarCache } from '../services/calendarCheckerCache.js';
 
 export type NonWorkingDayType = 'federal' | 'transfer' | 'regional' | 'custom';

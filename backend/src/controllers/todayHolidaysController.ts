@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { chromium } from 'playwright';
+
 import { HttpError } from '../middlewares/errorHandler.js';
 
 const HOLIDAYS_SOURCE_URL = 'https://kakoysegodnyaprazdnik.ru/';

@@ -73,6 +73,7 @@ export async function getCurrent(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+
   try {
     const moscowToday = getMoscowDateString(new Date());
     const [result, insights, alreadyRecordedToday] = await Promise.all([
@@ -94,6 +95,7 @@ export async function getOrder(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+
   const state = await getQueueState(teamId);
   res.json({ teamId, ...state });
 }
@@ -104,10 +106,12 @@ export async function getUpcoming(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+
   const days = daysRaw ? Number(daysRaw) : 7;
   if (!Number.isFinite(days) || days < 1 || days > 60) {
     throw new HttpError(400, 'Invalid days');
   }
+
   try {
     const rows = await getUpcomingPresenters(teamId, days);
     res.json({ teamId, days, rows });
@@ -135,10 +139,12 @@ export async function exportUpcomingIcs(
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+
   const days = daysRaw ? Number(daysRaw) : 7;
   if (!Number.isFinite(days) || days < 1 || days > 60) {
     throw new HttpError(400, 'Invalid days');
   }
+
   try {
     const rows = await getUpcomingPresenters(teamId, days);
     const events: IcsEventInput[] = rows.map((row) => {
@@ -179,10 +185,12 @@ export async function exportUpcomingCsv(
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+
   const days = daysRaw ? Number(daysRaw) : 7;
   if (!Number.isFinite(days) || days < 1 || days > 60) {
     throw new HttpError(400, 'Invalid days');
   }
+
   try {
     const rows = await getUpcomingPresenters(teamId, days);
     const lines: string[] = ['moscowDate,weekday,presenter'];
@@ -214,7 +222,9 @@ export async function present(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+
   assertTeamAccess(req.auth, teamId);
+
   try {
     const out = await recordPresentation(teamId, 'presented');
     res.json(out);
@@ -228,6 +238,7 @@ export async function skip(req: Request, res: Response): Promise<void> {
   if (!teamId || !mongoose.isValidObjectId(teamId)) {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
+
   assertTeamAccess(req.auth, teamId);
   const { error, value } = skipBody.validate(req.body ?? {}, {
     abortEarly: false,
@@ -236,6 +247,7 @@ export async function skip(req: Request, res: Response): Promise<void> {
   if (error) {
     throw new HttpError(400, error.message);
   }
+
   try {
     const out = await recordPresentation(teamId, 'skipped', new Date(), {
       rotateQueue: value.rotate !== false,
@@ -274,6 +286,7 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
       'userIds must contain only active users of this team',
     );
   }
+
   const seen = new Set<string>();
   for (const id of ids) {
     if (seen.has(id)) {

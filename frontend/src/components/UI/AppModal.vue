@@ -1,23 +1,22 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, useSlots, watch } from 'vue';
 
-const props = withDefaults(
-  defineProps<{
-    /** Открыто ли окно (v-model) */
-    modelValue: boolean;
-    /** Заголовок в шапке (если не задан слот #title) */
-    title?: string;
-    /** Закрывать по клику на затемнение */
-    closeOnBackdrop?: boolean;
-    /** Максимальная ширина панели */
-    size?: 'sm' | 'md' | 'lg';
-  }>(),
-  {
-    title: '',
-    closeOnBackdrop: true,
-    size: 'md',
-  },
-);
+interface AppModalProps {
+	/** Открыто ли окно (v-model) */
+	modelValue: boolean;
+	/** Заголовок в шапке (если не задан слот #title) */
+	title?: string;
+	/** Закрывать по клику на затемнение */
+	closeOnBackdrop?: boolean;
+	/** Максимальная ширина панели */
+	size?: 'sm' | 'md' | 'lg';
+}
+
+const props = withDefaults(defineProps<AppModalProps>(), {
+	title: '',
+	closeOnBackdrop: true,
+	size: 'md',
+});
 
 const slots = useSlots();
 const hasTitle = computed(() => Boolean(props.title?.trim() || slots.title));
@@ -47,6 +46,7 @@ function onKeydown(e: KeyboardEvent): void {
     return;
   }
   if (e.key === 'Tab' && props.modelValue) {
+		// eslint-disable-next-line no-use-before-define
     trapFocus(e);
   }
 }

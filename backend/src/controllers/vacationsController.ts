@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import Joi from 'joi';
 import mongoose from 'mongoose';
+
 import { HttpError } from '../middlewares/errorHandler.js';
 import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';

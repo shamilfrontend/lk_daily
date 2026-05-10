@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia';
 import { RouterLink, useRouter } from 'vue-router';
+
 import LoginModal from '@/components/LoginModal.vue';
 import AppButton from '@/components/UI/AppButton.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 
-defineProps<{
-  mobileOpen?: boolean;
-}>();
+interface AppSidebarProps {
+	mobileOpen?: boolean;
+}
+
+defineProps<AppSidebarProps>();
 
 const emit = defineEmits<{
   navigate: [];

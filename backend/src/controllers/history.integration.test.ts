@@ -72,6 +72,7 @@ describe('history API (integration)', () => {
     const p2 = await request(app)
       .get('/api/history')
       .query({ teamId, page: 2, limit: 2 });
+
     expect(p1.body.rows[0]._id).not.toBe(p2.body.rows[0]._id);
   });
 });
