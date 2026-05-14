@@ -9,6 +9,7 @@ import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
+import AppSwitch from '@/components/UI/AppSwitch.vue';
 import { useAppStore } from '@/stores/app';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
@@ -289,46 +290,47 @@ function isBirthdayToday(value?: string): boolean {
       size="md"
       @close="onParticipantModalClose"
     >
-      <form
-        class="field-grid participant-modal-form"
-        @submit.prevent="saveModal"
-      >
-        <label class="field__label" for="uc-team">Команда</label>
-        <select id="uc-team" v-model="modalTeamId" class="select" required>
-          <option v-for="t in teams.teams" :key="t._id" :value="t._id">
-            {{ t.name }}
-          </option>
-        </select>
+      <form class="participant-modal-form" @submit.prevent="saveModal">
+        <div class="field">
+          <label class="field__label" for="uc-team">Команда</label>
+          <select id="uc-team" v-model="modalTeamId" class="select" required>
+            <option v-for="t in teams.teams" :key="t._id" :value="t._id">
+              {{ t.name }}
+            </option>
+          </select>
+        </div>
 
-        <label class="field__label" for="uc-name">ФИО*</label>
-        <input id="uc-name" v-model="modalFullName" class="input" required />
+        <div class="field">
+          <label class="field__label" for="uc-name">ФИО*</label>
+          <input id="uc-name" v-model="modalFullName" class="input" placeholder="Введите ФИО" required />
+        </div>
 
-        <label class="field__label" for="uc-active">Активен</label>
-        <div class="field-grid__check">
-          <input
-            id="uc-active"
+        <div class="field">
+          <AppSwitch
             v-model="modalIsActive"
-            type="checkbox"
-            class="checkbox"
-          />
+            aria-labelledby="uc-active-lbl"
+					>
+						Активен
+					</AppSwitch>
         </div>
 
-        <label class="field__label" for="uc-mat">В декрете</label>
-        <div class="field-grid__check">
-          <input
-            id="uc-mat"
+        <div class="field">
+          <AppSwitch
             v-model="modalOnMaternityLeave"
-            type="checkbox"
-            class="checkbox"
-          />
+            aria-labelledby="uc-mat-lbl"
+					>
+						В декрете
+					</AppSwitch>
         </div>
 
-        <label class="field__label" for="uc-birthday">День рождения</label>
-        <AppDatePicker id="uc-birthday" v-model="modalBirthday" />
+        <div class="field">
+          <label class="field__label" for="uc-birthday">День рождения</label>
+          <AppDatePicker id="uc-birthday" v-model="modalBirthday" />
+        </div>
 
-        <p v-if="modalError" class="error field-grid__full">{{ modalError }}</p>
+        <p v-if="modalError" class="error">{{ modalError }}</p>
 
-        <div class="actions-row field-grid__full">
+        <div class="actions-row">
           <AppButton variant="primary" type="submit">Сохранить</AppButton>
           <AppButton type="button" @click="closeParticipantModal">
             Отмена
@@ -380,5 +382,12 @@ function isBirthdayToday(value?: string): boolean {
   margin-left: 0.4rem;
   font-size: 0.8rem;
   text-transform: uppercase;
+}
+
+.participant-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
 }
 </style>
