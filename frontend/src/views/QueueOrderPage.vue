@@ -6,18 +6,20 @@ import AppButton from '@/components/UI/AppButton.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
+import AppSwitch from '@/components/UI/AppSwitch.vue';
 import { useAppStore } from '@/stores/app';
 import { useQueueStore } from '@/stores/queue';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyInfo } from '@/composables/useAppNotifications';
+import type { QueueMember } from '@/types/api';
 
 const users = useUsersStore();
 const queue = useQueueStore();
 const app = useAppStore();
 
 const teamId = ref('');
-const localIds = ref<string[]>([]);
+const localMembers = ref<QueueMember[]>([]);
 const error = ref<string | null>(null);
 const subDate = ref('');
 const subUserId = ref('');
@@ -25,13 +27,6 @@ const subBusy = ref(false);
 const swapDateA = ref('');
 const swapDateB = ref('');
 const swapBusy = ref(false);
-
-const items = computed({
-  get: () => localIds.value.map((id) => ({ id })),
-  set: (v: { id: string }[]) => {
-    localIds.value = v.map((x) => x.id);
-  },
-});
 
 const nameById = computed(() => {
   const m = new Map<string, string>();
@@ -51,6 +46,18 @@ const onMaternityLeaveIds = computed(() => {
   return s;
 });
 
+function setMemberActive(index: number, active: boolean): void {
+  const row = localMembers.value[index];
+  if (!row) {
+    return;
+  }
+
+  localMembers.value.splice(index, 1, {
+    userId: row.userId,
+    active,
+  });
+}
+
 onMounted(() => {
   teamId.value = app.selectedTeamId ?? '';
 });
@@ -65,7 +72,7 @@ watch(teamId, async (id) => {
   try {
     await users.fetchUsers(id, false);
     await queue.loadAll(id, 1);
-    localIds.value = [...queue.order];
+    localMembers.value = queue.queueMembers.map((m) => ({ ...m }));
   } catch (e) {
     error.value =
       users.error ??
@@ -87,8 +94,9 @@ async function save(): Promise<void> {
     notifyInfo('Выберите команду для сохранения порядка');
     return;
   }
+
   try {
-    await queue.saveOrder(teamId.value, localIds.value);
+    await queue.saveOrder(teamId.value, localMembers.value);
   } catch {
     error.value = queue.error ?? 'Не удалось сохранить порядок';
   }
@@ -156,9 +164,10 @@ async function sortAz(): Promise<void> {
     notifyInfo('Выберите команду для сортировки очереди');
     return;
   }
+
   try {
     await queue.sortAlphabetical(teamId.value);
-    localIds.value = [...queue.order];
+    localMembers.value = queue.queueMembers.map((m) => ({ ...m }));
   } catch {
     error.value = queue.error ?? 'Не удалось отсортировать';
   }
@@ -169,7 +178,7 @@ async function sortAz(): Promise<void> {
   <section class="page-shell">
     <AppPageHeader
       title="Настройка очереди"
-      subtitle="Меняй порядок докладчиков вручную, быстро сортируй по алфавиту и сразу сохраняй результат."
+      subtitle="Меняй порядок, отключай участников от ротации при необходимости и сохраняй результат."
     />
 
     <AppState
@@ -184,21 +193,22 @@ async function sortAz(): Promise<void> {
         <div>
           <h2 class="card-heading__title">Очередь докладчиков</h2>
           <p class="card-heading__subtitle">
-            Зажми маркер слева и перетащи участника на новое место.
+            Зажми маркер слева и перетащи участника. Переключатель «Участвует в очереди» —
+            участие в очереди выступлений (по умолчанию включено).
           </p>
         </div>
       </div>
 
       <p v-if="error" class="error">{{ error }}</p>
       <AppState
-        v-if="queue.loading && localIds.length === 0"
+        v-if="queue.loading && localMembers.length === 0"
         title="Загружаем очередь"
         description="Подтягиваем участников и текущий порядок."
         compact
       />
 
       <AppState
-        v-else-if="localIds.length === 0"
+        v-else-if="localMembers.length === 0"
         title="Очередь пока пуста"
         description="Добавь участников в команду или настрой порядок позже."
         tone="empty"
@@ -206,8 +216,8 @@ async function sortAz(): Promise<void> {
 
       <template v-else>
         <draggable
-          v-model="items"
-          item-key="id"
+          v-model="localMembers"
+          item-key="userId"
           tag="ol"
           class="dlist"
           handle=".handle"
@@ -219,14 +229,27 @@ async function sortAz(): Promise<void> {
                 <div>
                   <p class="ditem__position">Позиция {{ index + 1 }}</p>
                   <p class="ditem__name">
-                    {{ nameById.get(element.id) ?? element.id }}
+                    {{ nameById.get(element.userId) ?? element.userId }}
                   </p>
                 </div>
               </div>
-              <div class="ditem__badges">
-                <span v-if="onMaternityLeaveIds.has(element.id)" class="badge"
-                  >в декрете</span
+              <div class="ditem__side">
+                <AppSwitch
+                  :model-value="element.active"
+                  :disabled="queue.loading"
+                  @update:model-value="
+                    (active: boolean) => setMemberActive(index, active)
+                  "
                 >
+                  Участвует в очереди
+                </AppSwitch>
+                <div class="ditem__badges">
+                  <span
+                    v-if="onMaternityLeaveIds.has(element.userId)"
+                    class="badge"
+                    >в декрете</span
+                  >
+                </div>
               </div>
             </li>
           </template>
@@ -421,6 +444,14 @@ async function sortAz(): Promise<void> {
   font-weight: 600;
 }
 
+.ditem__side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
 .ditem__badges {
   display: flex;
   flex-wrap: wrap;
@@ -499,6 +530,11 @@ async function sortAz(): Promise<void> {
 }
 
 @media (max-width: 720px) {
+  .ditem__side {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .ditem {
     flex-direction: column;
     align-items: flex-start;

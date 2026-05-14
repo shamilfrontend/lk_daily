@@ -105,7 +105,13 @@ async function mockApiForQueueActions(page: Page): Promise<void> {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ teamId: MOCK_TEAM_ID, userIds: [MOCK_USER_A, MOCK_USER_B] }),
+        body: JSON.stringify({
+          teamId: MOCK_TEAM_ID,
+          members: [
+            { userId: MOCK_USER_A, active: true },
+            { userId: MOCK_USER_B, active: true },
+          ],
+        }),
       });
       return;
     }

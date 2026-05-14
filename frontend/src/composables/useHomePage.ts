@@ -7,6 +7,7 @@ import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { formatDayMonthRu, moscowTodayString } from '@/utils/dates';
 import { notifySuccess } from '@/composables/useAppNotifications';
+import type { QueueMember } from '@/types/api';
 
 const UPCOMING_DAYS = 60;
 const UPCOMING_BIRTHDAY_DAYS = 30;
@@ -136,8 +137,27 @@ export function useHomePage() {
     );
   });
 
-  const queueSize = computed(() => queue.order.length);
+  const queueSize = computed(
+    () => queue.queueMembers.filter((m) => m.active).length,
+  );
   const vacationCount = computed(() => onVacationToday.value.size);
+
+  /** Участники, которых показываем в блоке «Текущая очередь» на «Сегодня». */
+  const visibleQueueMembersToday = computed<QueueMember[]>(() =>
+    queue.queueMembers.filter(
+      (m) =>
+        m.active &&
+        !onVacationToday.value.has(m.userId) &&
+        !onMaternityLeaveIds.value.has(m.userId),
+    ),
+  );
+
+  const queueHasOnlyHiddenMembersToday = computed(
+    () =>
+      queue.queueMembers.length > 0 &&
+      visibleQueueMembersToday.value.length === 0,
+  );
+
   const nextPresenterCount = computed(() => queue.upcoming.length);
 
   const upcomingBirthdays = computed<UpcomingBirthdayRow[]>(() => {
@@ -255,6 +275,7 @@ export function useHomePage() {
     onVacationToday,
     pageError,
     queue,
+    queueHasOnlyHiddenMembersToday,
     queueSize,
     refresh,
     skipWithoutRotation,
@@ -266,5 +287,6 @@ export function useHomePage() {
     queueDateByUserId,
     userMap,
     vacationCount,
+    visibleQueueMembersToday,
   };
 }

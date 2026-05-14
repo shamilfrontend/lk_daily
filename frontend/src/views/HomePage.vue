@@ -14,12 +14,11 @@ const {
   currentTeam,
   headline,
   nonWorkingReason,
-  onMaternityLeaveIds,
   onPresent,
   onSkip,
-  onVacationToday,
   pageError,
   queue,
+  queueHasOnlyHiddenMembersToday,
   queueSize,
   refresh,
   skipWithoutRotation,
@@ -30,6 +29,7 @@ const {
   queueDateByUserId,
   userMap,
   vacationCount,
+  visibleQueueMembersToday,
 } = useHomePage();
 </script>
 
@@ -204,33 +204,30 @@ const {
             compact
           />
           <AppState
-            v-else-if="queue.order.length === 0"
+            v-else-if="queue.queueMembers.length === 0"
             title="Очередь пока не настроена"
             description="Добавь участников и сформируй порядок в административном разделе."
             tone="empty"
             compact
           />
+          <AppState
+            v-else-if="queueHasOnlyHiddenMembersToday"
+            title="Некого показать в очереди"
+            description="Все участники сейчас вне ротации, в отпуске или в декрете. Полный порядок и флаги — в разделе настройки очереди."
+            tone="empty"
+            compact
+          />
           <ol v-else class="queue">
-            <li v-for="id in queue.order" :key="id" class="queue__item">
+            <li
+              v-for="m in visibleQueueMembersToday"
+              :key="m.userId"
+              class="queue__item"
+            >
               <div class="queue__main">
-                <p class="queue__name">{{ userMap.get(id) ?? id }}</p>
+                <p class="queue__name">{{ userMap.get(m.userId) ?? m.userId }}</p>
                 <p class="queue__date">
-                  {{
-                    onMaternityLeaveIds.has(id)
-                      ? 'в декрете'
-                      : onVacationToday.has(id)
-                        ? 'в отпуске'
-                        : queueDateByUserId.get(id) ?? '—'
-                  }}
+                  {{ queueDateByUserId.get(m.userId) ?? '—' }}
                 </p>
-              </div>
-              <div class="queue__badges">
-                <span v-if="onVacationToday.has(id)" class="badge"
-                  >в отпуске</span
-                >
-                <span v-if="onMaternityLeaveIds.has(id)" class="badge"
-                  >в декрете</span
-                >
               </div>
             </li>
           </ol>
@@ -364,8 +361,7 @@ const {
 
 .queue__item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: var(--space-3);
   padding: 0.25rem 1rem;
   border: 1px solid var(--border);
@@ -384,21 +380,9 @@ const {
   color: var(--muted);
 }
 
-.queue__badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.4rem;
-}
-
 @media (max-width: 720px) {
   .queue__item {
     flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .queue__badges {
-    justify-content: flex-start;
   }
 }
 </style>

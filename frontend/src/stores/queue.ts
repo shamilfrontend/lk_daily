@@ -8,6 +8,7 @@ import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 import type {
   CurrentPresenterResult,
   QueueInsightsToday,
+  QueueMember,
   QueueSubstitutionRow,
   UpcomingRow,
 } from '@/types/api';
@@ -20,7 +21,7 @@ export const useQueueStore = defineStore('queue', () => {
   /** За текущую московскую дату для команды уже есть запись в логе выступлений */
   const alreadyRecordedToday = ref(false);
   const insightsToday = ref<QueueInsightsToday | null>(null);
-  const order = ref<string[]>([]);
+  const queueMembers = ref<QueueMember[]>([]);
   const upcoming = ref<UpcomingRow[]>([]);
   const substitutions = ref<QueueSubstitutionRow[]>([]);
   const loading = ref(false);
@@ -37,7 +38,7 @@ export const useQueueStore = defineStore('queue', () => {
           insights: QueueInsightsToday;
           alreadyRecordedToday?: boolean;
         }>('/queue/current', { params: { teamId } }),
-        api.get<{ teamId: string; userIds: string[] }>('/queue/order', {
+        api.get<{ teamId: string; members: QueueMember[] }>('/queue/order', {
           params: { teamId },
         }),
         api.get<{ teamId: string; days: number; rows: UpcomingRow[] }>(
@@ -57,7 +58,7 @@ export const useQueueStore = defineStore('queue', () => {
         vacationUserIds: [],
         maternityUserIds: [],
       };
-      order.value = o.data.userIds;
+      queueMembers.value = o.data.members ?? [];
       upcoming.value = u.data.rows;
       substitutions.value = s.data.rows;
     } catch (e) {
@@ -104,10 +105,10 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  async function saveOrder(teamId: string, userIds: string[]): Promise<void> {
+  async function saveOrder(teamId: string, members: QueueMember[]): Promise<void> {
     error.value = null;
     try {
-      await api.put('/queue/order', { userIds }, { params: { teamId } });
+      await api.put('/queue/order', { members }, { params: { teamId } });
       await loadAll(teamId);
       notifySuccess('Порядок очереди сохранен');
     } catch (e) {
@@ -204,7 +205,7 @@ export const useQueueStore = defineStore('queue', () => {
     current,
     alreadyRecordedToday,
     insightsToday,
-    order,
+    queueMembers,
     upcoming,
     substitutions,
     loading,

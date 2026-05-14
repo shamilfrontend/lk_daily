@@ -61,7 +61,10 @@ describe('queue API (integration)', () => {
 
     await QueueOrder.create({
       teamId: team._id,
-      userIds: [ua._id, ub._id],
+      members: [
+        { userId: ua._id, active: true },
+        { userId: ub._id, active: true },
+      ],
     });
 
     await Admin.create({

@@ -52,7 +52,10 @@ describe('hooks notify-today (integration)', () => {
       fullName: 'Presenter',
       isActive: true,
     });
-    await QueueOrder.create({ teamId: team._id, userIds: [ua._id] });
+    await QueueOrder.create({
+      teamId: team._id,
+      members: [{ userId: ua._id, active: true }],
+    });
 
     await Admin.create({
       login: 'adm',

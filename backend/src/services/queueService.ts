@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { PresentationLog } from '../models/PresentationLog.js';
 import { QueueDaySubstitution } from '../models/QueueDaySubstitution.js';
 import { QueueOrder } from '../models/QueueOrder.js';
+import type { IQueueMember } from '../models/QueueOrder.js';
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';
@@ -47,6 +48,56 @@ async function isMongoTransactionsSupported(): Promise<boolean> {
 
 function toOid(id: string): Types.ObjectId {
   return new mongoose.Types.ObjectId(id);
+}
+
+export type QueueMemberPlain = {
+  userId: Types.ObjectId;
+  active: boolean;
+};
+
+type QueueOrderLean = {
+  userIds?: Types.ObjectId[];
+  members?: { userId: Types.ObjectId; active?: boolean }[];
+};
+
+/** Читает members из документа (в т.ч. ленивая форма со старым полем userIds). */
+export function membersFromLeanDoc(doc: QueueOrderLean | null): QueueMemberPlain[] {
+  if (!doc) {
+    return [];
+  }
+  if (doc.members && doc.members.length > 0) {
+    return doc.members.map((m) => ({
+      userId: m.userId,
+      active: m.active !== false,
+    }));
+  }
+  if (doc.userIds && doc.userIds.length > 0) {
+    return doc.userIds.map((userId) => ({ userId, active: true }));
+  }
+  return [];
+}
+
+/** Миграция legacy `userIds` → `members`, очистка поля userIds. */
+export async function migrateLegacyQueueOrderIfNeeded(
+  teamId: Types.ObjectId,
+): Promise<void> {
+  const doc = (await QueueOrder.findOne({ teamId }).lean()) as QueueOrderLean | null;
+  if (!doc) {
+    return;
+  }
+  if (doc.userIds === undefined) {
+    return;
+  }
+
+  let nextMembers = membersFromLeanDoc(doc);
+  if (nextMembers.length === 0) {
+    nextMembers = [];
+  }
+
+  await QueueOrder.updateOne(
+    { teamId },
+    { $set: { members: nextMembers }, $unset: { userIds: 1 } },
+  );
 }
 
 export async function getVacationUserIdSetForMoscowDay(
@@ -114,6 +165,21 @@ function rotatePresenter(
   return next;
 }
 
+/** Сдвигает участника в конец полного списка members (сохраняет флаг active). */
+function rotateMemberRow(
+  members: QueueMemberPlain[],
+  presenterUserId: Types.ObjectId,
+): QueueMemberPlain[] {
+  const idx = members.findIndex((m) => m.userId.equals(presenterUserId));
+  if (idx === -1) {
+    return [...members];
+  }
+  const next = [...members];
+  const [row] = next.splice(idx, 1);
+  next.push(row);
+  return next;
+}
+
 export type CurrentPresenterResult =
   | { kind: 'non_working'; reason: string }
   | { kind: 'no_queue' }
@@ -145,29 +211,42 @@ export async function getCurrentPresenter(
     return { kind: 'non_working', reason };
   }
 
-  const queueOrder = await QueueOrder.findOne({ teamId: toOid(teamId) });
-  if (!queueOrder || queueOrder.userIds.length === 0) {
+  const tid = toOid(teamId);
+  await migrateLegacyQueueOrderIfNeeded(tid);
+
+  const queueOrder = await QueueOrder.findOne({ teamId: tid });
+  const membersOrdered = queueOrder
+    ? queueOrder.members.map((m) => ({
+        userId: m.userId,
+        active: m.active !== false,
+      }))
+    : [];
+  if (!queueOrder || membersOrdered.length === 0) {
     return { kind: 'no_queue' };
   }
 
+  const memberIds = membersOrdered.map((m) => m.userId);
   const users = await User.find({
-    _id: { $in: queueOrder.userIds },
+    _id: { $in: memberIds },
     teamId: team._id,
     isActive: true,
   }).lean();
 
   const userById = new Map(users.map((u) => [u._id.toString(), u]));
-  const orderedActive = queueOrder.userIds.filter((id) =>
-    userById.has(id.toString()),
-  );
+  const orderedForRotation = membersOrdered
+    .filter((m) => m.active && userById.has(m.userId.toString()))
+    .map((m) => m.userId);
 
   const vacationSet = await getVacationUserIdSetForMoscowDay(
-    orderedActive,
+    orderedForRotation,
     moscowDateStr,
   );
-  const maternitySet = await getMaternityUserIdSet(orderedActive);
+  const maternitySet = await getMaternityUserIdSet(orderedForRotation);
   const unavailable = new Set<string>([...vacationSet, ...maternitySet]);
-  const presenterId = await findFirstPresenterId(orderedActive, unavailable);
+  const presenterId = await findFirstPresenterId(
+    orderedForRotation,
+    unavailable,
+  );
 
   if (!presenterId) {
     return { kind: 'no_available' };
@@ -215,11 +294,19 @@ export async function getCurrentPresenter(
 }
 
 export async function getQueueState(teamId: string) {
-  const queueOrder = await QueueOrder.findOne({ teamId: toOid(teamId) }).lean();
+  const tid = toOid(teamId);
+  await migrateLegacyQueueOrderIfNeeded(tid);
+  const queueOrder = await QueueOrder.findOne({ teamId: tid }).lean();
   if (!queueOrder) {
-    return { userIds: [] as string[] };
+    return { members: [] as { userId: string; active: boolean }[] };
   }
-  return { userIds: queueOrder.userIds.map((id) => id.toString()) };
+  const rows = membersFromLeanDoc(queueOrder as QueueOrderLean);
+  return {
+    members: rows.map((m) => ({
+      userId: m.userId.toString(),
+      active: m.active,
+    })),
+  };
 }
 
 export async function presentationLogExistsForTeamMoscowDay(
@@ -261,25 +348,29 @@ export async function getQueueInsightsForToday(
   if (!team) {
     throw new Error('TEAM_NOT_FOUND');
   }
-  const queueOrder = await QueueOrder.findOne({ teamId: toOid(teamId) }).lean();
-  if (!queueOrder || queueOrder.userIds.length === 0) {
+  const tid = toOid(teamId);
+  await migrateLegacyQueueOrderIfNeeded(tid);
+  const queueOrder = await QueueOrder.findOne({ teamId: tid }).lean();
+  const membersOrdered = membersFromLeanDoc(queueOrder as QueueOrderLean | null);
+  if (!queueOrder || membersOrdered.length === 0) {
     return { vacationUserIds: [], maternityUserIds: [] };
   }
+  const memberIds = membersOrdered.map((m) => m.userId);
   const users = await User.find({
-    _id: { $in: queueOrder.userIds },
+    _id: { $in: memberIds },
     teamId: team._id,
     isActive: true,
   }).lean();
   const activeIdSet = new Set(users.map((u) => u._id.toString()));
-  const orderedActive = queueOrder.userIds.filter((id) =>
-    activeIdSet.has(id.toString()),
-  );
+  const orderedForInsights = membersOrdered
+    .filter((m) => m.active && activeIdSet.has(m.userId.toString()))
+    .map((m) => m.userId);
   const moscowDateStr = getMoscowDateString(when);
   const vacationSet = await getVacationUserIdSetForMoscowDay(
-    orderedActive,
+    orderedForInsights,
     moscowDateStr,
   );
-  const maternitySet = await getMaternityUserIdSet(orderedActive);
+  const maternitySet = await getMaternityUserIdSet(orderedForInsights);
   return {
     vacationUserIds: [...vacationSet],
     maternityUserIds: [...maternitySet],
@@ -367,46 +458,53 @@ async function recordPresentationCore(
 
   await assertNoLogForTeamDay(teamId, moscowDateStr, session ?? undefined);
 
+  const tid = toOid(teamId);
+
   const queueOrder = await (session
-    ? QueueOrder.findOne({ teamId: toOid(teamId) }).session(session)
-    : QueueOrder.findOne({ teamId: toOid(teamId) }));
-  if (!queueOrder || queueOrder.userIds.length === 0) {
+    ? QueueOrder.findOne({ teamId: tid }).session(session)
+    : QueueOrder.findOne({ teamId: tid }));
+  if (!queueOrder || queueOrder.members.length === 0) {
     throw new Error('NO_QUEUE');
   }
 
+  const membersOrdered: QueueMemberPlain[] = queueOrder.members.map((m) => ({
+    userId: m.userId,
+    active: m.active !== false,
+  }));
+
   const users = await (session
     ? User.find({
-        _id: { $in: queueOrder.userIds },
+        _id: { $in: membersOrdered.map((x) => x.userId) },
         teamId: team._id,
         isActive: true,
       })
         .session(session)
         .lean()
     : User.find({
-        _id: { $in: queueOrder.userIds },
+        _id: { $in: membersOrdered.map((x) => x.userId) },
         teamId: team._id,
         isActive: true,
       }).lean());
   const userById = new Map(users.map((u) => [u._id.toString(), u]));
-  const orderedActive = queueOrder.userIds.filter((id) =>
-    userById.has(id.toString()),
-  );
-  if (orderedActive.length === 0) {
+  const orderedForRotation = membersOrdered
+    .filter((m) => m.active && userById.has(m.userId.toString()))
+    .map((m) => m.userId);
+  if (orderedForRotation.length === 0) {
     throw new Error('NO_PRESENTER');
   }
 
   const vacationSet = await getVacationUserIdSetForMoscowDay(
-    orderedActive,
+    orderedForRotation,
     moscowDateStr,
     session ?? undefined,
   );
   const maternitySet = await getMaternityUserIdSet(
-    orderedActive,
+    orderedForRotation,
     session ?? undefined,
   );
   const unavailable = new Set<string>([...vacationSet, ...maternitySet]);
   const canonicalPresenterId = await findFirstPresenterId(
-    orderedActive,
+    orderedForRotation,
     unavailable,
   );
   if (!canonicalPresenterId) {
@@ -444,11 +542,11 @@ async function recordPresentationCore(
     }
   }
 
-  const newOrder = rotateQueue
-    ? rotatePresenter(queueOrder.userIds, canonicalPresenterId)
-    : [...queueOrder.userIds];
+  const newMembers = rotateQueue
+    ? rotateMemberRow(membersOrdered, canonicalPresenterId)
+    : [...membersOrdered];
   if (rotateQueue) {
-    queueOrder.userIds = newOrder;
+    queueOrder.members = newMembers as IQueueMember[];
     await queueOrder.save(session ? { session } : {});
   }
 
@@ -466,7 +564,7 @@ async function recordPresentationCore(
     createOpts,
   );
 
-  return newOrder.map((id) => id.toString());
+  return newMembers.map((m) => m.userId.toString());
 }
 
 export async function recordPresentation(
@@ -476,6 +574,7 @@ export async function recordPresentation(
   options?: { rotateQueue?: boolean },
 ): Promise<{ newUserIds: string[] }> {
   const rotateQueue = options?.rotateQueue !== false;
+  await migrateLegacyQueueOrderIfNeeded(toOid(teamId));
   if (!(await isMongoTransactionsSupported())) {
     const newUserIds = await recordPresentationCore(
       teamId,
@@ -522,12 +621,19 @@ export async function getUpcomingPresenters(
     throw new Error('TEAM_NOT_FOUND');
   }
 
-  const queueOrder = await QueueOrder.findOne({ teamId: toOid(teamId) }).lean();
+  const tid = toOid(teamId);
+  await migrateLegacyQueueOrderIfNeeded(tid);
+  const queueOrder = await QueueOrder.findOne({ teamId: tid }).lean();
   if (!queueOrder) {
     return [];
   }
 
-  let sim = [...queueOrder.userIds];
+  const membersInit = membersFromLeanDoc(queueOrder as QueueOrderLean);
+  const memberActiveById = new Map(
+    membersInit.map((m) => [m.userId.toString(), m.active]),
+  );
+
+  let sim = membersInit.map((m) => m.userId);
   const rows: UpcomingRow[] = [];
 
   const teamUsers = await User.find({
@@ -566,7 +672,11 @@ export async function getUpcomingPresenters(
       continue;
     }
 
-    const activeSim = sim.filter((id) => userById.has(id.toString()));
+    const activeSim = sim.filter(
+      (id) =>
+        userById.has(id.toString()) &&
+        memberActiveById.get(id.toString()) !== false,
+    );
     const vacationSet = await getVacationUserIdSetForMoscowDay(
       activeSim,
       cursor,
@@ -612,7 +722,7 @@ export async function getUpcomingPresenters(
 export async function ensureQueueOrder(teamId: Types.ObjectId): Promise<void> {
   await QueueOrder.updateOne(
     { teamId },
-    { $setOnInsert: { teamId, userIds: [] } },
+    { $setOnInsert: { teamId, members: [] } },
     { upsert: true },
   );
 }
@@ -622,13 +732,18 @@ export async function appendUserToQueueEnd(
   userId: Types.ObjectId,
 ): Promise<void> {
   await ensureQueueOrder(teamId);
-  await QueueOrder.updateOne({ teamId }, { $addToSet: { userIds: userId } });
-  // $addToSet не гарантирует порядок «в конец» — добиваем переносом в конец если уже был
+  await migrateLegacyQueueOrderIfNeeded(teamId);
   const q = await QueueOrder.findOne({ teamId });
-  if (!q) return;
-  const without = q.userIds.filter((id) => !id.equals(userId));
-  without.push(userId);
-  q.userIds = without;
+  if (!q) {
+    return;
+  }
+  const list = q.members.map((m) => ({
+    userId: m.userId,
+    active: m.active !== false,
+  }));
+  const without = list.filter((m) => !m.userId.equals(userId));
+  without.push({ userId, active: true });
+  q.members = without as IQueueMember[];
   await q.save();
 }
 
@@ -636,16 +751,28 @@ export async function removeUserFromQueue(
   teamId: Types.ObjectId,
   userId: Types.ObjectId,
 ): Promise<void> {
-  await QueueOrder.updateOne({ teamId }, { $pull: { userIds: userId } });
+  await migrateLegacyQueueOrderIfNeeded(teamId);
+  await QueueOrder.updateOne(
+    { teamId },
+    { $pull: { members: { userId } } },
+  );
 }
 
 export async function replaceQueueOrder(
   teamId: Types.ObjectId,
-  userIds: Types.ObjectId[],
+  members: QueueMemberPlain[],
 ): Promise<void> {
   await QueueOrder.findOneAndUpdate(
     { teamId },
-    { $set: { userIds } },
+    {
+      $set: {
+        members: members.map((m) => ({
+          userId: m.userId,
+          active: m.active,
+        })),
+      },
+      $unset: { userIds: 1 },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 }
@@ -660,7 +787,10 @@ export async function sortQueueAlphabetically(
   const users = await User.find({ teamId, isActive: true })
     .sort({ fullName: 1 })
     .lean();
-  const ids = users.map((u) => u._id);
-  await replaceQueueOrder(teamId, ids);
-  return ids.map((id) => id.toString());
+  const members: QueueMemberPlain[] = users.map((u) => ({
+    userId: u._id,
+    active: true,
+  }));
+  await replaceQueueOrder(teamId, members);
+  return members.map((m) => m.userId.toString());
 }

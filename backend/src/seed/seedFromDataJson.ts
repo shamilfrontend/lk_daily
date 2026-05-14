@@ -162,7 +162,10 @@ async function seedFromData(data: SeedData): Promise<void> {
       }
     }
 
-    await replaceQueueOrder(team._id, userIds);
+    await replaceQueueOrder(
+      team._id,
+      userIds.map((userId) => ({ userId, active: true })),
+    );
     logger.info(`Seeded team "${team.name}" with ${userIds.length} members`);
   }
 }

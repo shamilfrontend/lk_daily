@@ -17,6 +17,7 @@ import {
   recordPresentation,
   replaceQueueOrder,
   sortQueueAlphabetically,
+  type QueueMemberPlain,
 } from '../services/queueService.js';
 import {
   formatMoscowWeekdayLongRu,
@@ -25,7 +26,14 @@ import {
 import { buildIcsCalendar, type IcsEventInput } from '../utils/ics.js';
 
 const orderBody = Joi.object({
-  userIds: Joi.array().items(Joi.string().required()).required(),
+  members: Joi.array()
+    .items(
+      Joi.object({
+        userId: Joi.string().required(),
+        active: Joi.boolean().default(true),
+      }),
+    )
+    .required(),
 });
 
 const skipBody = Joi.object({
@@ -264,17 +272,20 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
     throw new HttpError(400, 'Invalid or missing teamId');
   }
   assertTeamAccess(req.auth, teamId);
-  const { error, value } = orderBody.validate(req.body);
+  const { error, value } = orderBody.validate(req.body, {
+    abortEarly: false,
+    stripUnknown: true,
+  });
   if (error) {
     throw new HttpError(400, error.message);
   }
-  const ids = value.userIds as string[];
-  for (const id of ids) {
-    if (!mongoose.isValidObjectId(id)) {
-      throw new HttpError(400, `Invalid user id: ${id}`);
+  const rows = value.members as { userId: string; active: boolean }[];
+  for (const row of rows) {
+    if (!mongoose.isValidObjectId(row.userId)) {
+      throw new HttpError(400, `Invalid user id: ${row.userId}`);
     }
   }
-  const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+  const objectIds = rows.map((r) => new mongoose.Types.ObjectId(r.userId));
   const users = await User.find({
     _id: { $in: objectIds },
     teamId: new mongoose.Types.ObjectId(teamId),
@@ -283,19 +294,29 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
   if (users.length !== objectIds.length) {
     throw new HttpError(
       400,
-      'userIds must contain only active users of this team',
+      'members must reference only active users of this team',
     );
   }
 
   const seen = new Set<string>();
-  for (const id of ids) {
-    if (seen.has(id)) {
-      throw new HttpError(400, 'Duplicate userIds');
+  for (const row of rows) {
+    if (seen.has(row.userId)) {
+      throw new HttpError(400, 'Duplicate userId in members');
     }
-    seen.add(id);
+    seen.add(row.userId);
   }
-  await replaceQueueOrder(new mongoose.Types.ObjectId(teamId), objectIds);
-  res.json({ ok: true, userIds: ids });
+  const membersPlain: QueueMemberPlain[] = rows.map((r) => ({
+    userId: new mongoose.Types.ObjectId(r.userId),
+    active: r.active,
+  }));
+  await replaceQueueOrder(new mongoose.Types.ObjectId(teamId), membersPlain);
+  res.json({
+    ok: true,
+    members: membersPlain.map((m) => ({
+      userId: m.userId.toString(),
+      active: m.active,
+    })),
+  });
 }
 
 export async function sortOrderAlphabetically(

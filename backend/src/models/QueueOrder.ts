@@ -5,11 +5,31 @@ import mongoose, {
   type Types,
 } from 'mongoose';
 
+export interface IQueueMember {
+  userId: Types.ObjectId;
+  active: boolean;
+}
+
 export interface IQueueOrder extends Document {
   teamId: Types.ObjectId;
-  userIds: Types.ObjectId[];
+  /** Упорядоченные участники очереди (порядок = порядок выступлений). */
+  members: IQueueMember[];
+  /** @deprecated миграция со старой схемы; не использовать в новом коде */
+  userIds?: Types.ObjectId[];
   updatedAt: Date;
 }
+
+const queueMemberSchema = new Schema<IQueueMember>(
+  {
+    userId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    active: { type: Boolean, default: true },
+  },
+  { _id: false },
+);
 
 const queueOrderSchema = new Schema<IQueueOrder>(
   {
@@ -18,6 +38,10 @@ const queueOrderSchema = new Schema<IQueueOrder>(
       ref: 'Team',
       required: true,
       unique: true,
+    },
+    members: {
+      type: [queueMemberSchema],
+      default: [],
     },
     userIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   },

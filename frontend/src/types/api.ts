@@ -63,6 +63,11 @@ export interface QueueInsightsToday {
   maternityUserIds: string[];
 }
 
+export interface QueueMember {
+  userId: string;
+  active: boolean;
+}
+
 export type AdminRole = 'super' | 'team-lead';
 
 export interface TeamStatsResponse {
