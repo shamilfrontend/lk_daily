@@ -27,6 +27,8 @@ interface Props {
   label?: string;
   /** Сразу применять выбранную дату и закрывать меню */
   autoApply?: boolean;
+  /** Подсказка в пустом поле (формат ввода — день.месяц.год) */
+  placeholder?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -45,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
   showCalendarTrigger: true,
   label: undefined,
   autoApply: true,
+  placeholder: 'дд.мм.гггг',
 });
 
 const attrs = useAttrs();
@@ -168,6 +171,7 @@ const rootClass = computed(() => [attrs.class]);
         :formats="{ input: 'dd.MM.yyyy' }"
         :text-input="true"
         :time-picker="false"
+        :placeholder="placeholder"
         :input-attrs="inputAttrs"
         teleport="body"
         @update:model-value="onUpdateModelValue"
