@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
-import { VueDatePicker } from '@vuepic/vue-datepicker';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
 import AppContextMenu from '@/components/UI/AppContextMenu.vue';
 import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
+import VacationPeriodModal from '@/components/VacationPeriodModal.vue';
 import { useAppStore } from '@/stores/app';
 import { useUsersStore } from '@/stores/users';
 import { useVacationsStore } from '@/stores/vacations';
@@ -21,30 +21,36 @@ const vacations = useVacationsStore();
 
 const filterTeamId = ref('');
 const filterUserId = ref('');
-const startDate = ref('');
-const endDate = ref('');
-const editingId = ref<string | null>(null);
 const error = ref<string | null>(null);
-const selectedRange = ref<[Date, Date] | null>(null);
 const confirmOpen = ref(false);
 const confirmLoading = ref(false);
 const pendingRemovalId = ref<string | null>(null);
+
+const vacationModalOpen = ref(false);
+const modalMode = ref<'create' | 'edit'>('create');
+const modalVacationId = ref<string | null>(null);
+const modalInitialStart = ref('');
+const modalInitialEnd = ref('');
+const modalSaving = ref(false);
+const modalSaveError = ref('');
 
 const selectedUserName = computed(
   () =>
     users.users.find((user) => user._id === filterUserId.value)?.fullName ?? '',
 );
 
-function toYmd(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-function parseLocalDate(value: string): Date {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day);
+async function loadVacations(): Promise<void> {
+  if (!filterUserId.value) {
+    vacations.vacations = [];
+    return;
+  }
+  error.value = null;
+  try {
+    await vacations.fetchVacations({ userId: filterUserId.value });
+  } catch (e) {
+    error.value =
+      vacations.error ?? getApiErrorMessage(e, 'Не удалось загрузить отпуска');
+  }
 }
 
 onMounted(() => {
@@ -75,79 +81,75 @@ watch(
 );
 
 watch(filterUserId, () => {
+  if (vacationModalOpen.value) {
+    vacationModalOpen.value = false;
+  }
   void loadVacations();
 });
 
-async function loadVacations(): Promise<void> {
+watch(vacationModalOpen, (open) => {
+  if (!open) {
+    modalSaveError.value = '';
+  }
+});
+
+function openCreateModal(): void {
   if (!filterUserId.value) {
-    vacations.vacations = [];
+    notifyInfo('Выберите участника перед добавлением отпуска');
     return;
   }
-  error.value = null;
-  try {
-    await vacations.fetchVacations({ userId: filterUserId.value });
-  } catch (e) {
-    error.value =
-      vacations.error ?? getApiErrorMessage(e, 'Не удалось загрузить отпуска');
-  }
+  modalMode.value = 'create';
+  modalVacationId.value = null;
+  modalInitialStart.value = '';
+  modalInitialEnd.value = '';
+  modalSaveError.value = '';
+  vacationModalOpen.value = true;
 }
 
-function startEdit(v: {
+function openEditModal(v: {
   _id: string;
   startDate: string;
   endDate: string;
 }): void {
-  editingId.value = v._id;
-  startDate.value = v.startDate.slice(0, 10);
-  endDate.value = v.endDate.slice(0, 10);
-  selectedRange.value = [
-    parseLocalDate(startDate.value),
-    parseLocalDate(endDate.value),
-  ];
+  modalMode.value = 'edit';
+  modalVacationId.value = v._id;
+  modalInitialStart.value = v.startDate.slice(0, 10);
+  modalInitialEnd.value = v.endDate.slice(0, 10);
+  modalSaveError.value = '';
+  vacationModalOpen.value = true;
 }
 
-function resetForm(): void {
-  editingId.value = null;
-  startDate.value = '';
-  endDate.value = '';
-  selectedRange.value = null;
-}
-
-function onRangeChange(v: [Date, Date] | null): void {
-  selectedRange.value = v;
-  if (!v || !v[0] || !v[1]) {
-    startDate.value = '';
-    endDate.value = '';
-    return;
-  }
-  startDate.value = toYmd(v[0]);
-  endDate.value = toYmd(v[1]);
-}
-
-async function save(): Promise<void> {
-  error.value = null;
+async function onVacationModalSave(payload: {
+  startDate: string;
+  endDate: string;
+  vacationId?: string;
+}): Promise<void> {
+  modalSaveError.value = '';
   if (!filterUserId.value) {
-    error.value = 'Выберите участника';
+    modalSaveError.value = 'Выберите участника';
     notifyInfo('Выберите участника перед сохранением отпуска');
     return;
   }
+  modalSaving.value = true;
   try {
-    if (editingId.value) {
-      await vacations.updateVacation(editingId.value, {
-        startDate: startDate.value,
-        endDate: endDate.value,
+    if (payload.vacationId) {
+      await vacations.updateVacation(payload.vacationId, {
+        startDate: payload.startDate,
+        endDate: payload.endDate,
       });
     } else {
       await vacations.createVacation({
         userId: filterUserId.value,
-        startDate: startDate.value,
-        endDate: endDate.value,
+        startDate: payload.startDate,
+        endDate: payload.endDate,
       });
     }
-    resetForm();
+    vacationModalOpen.value = false;
     await loadVacations();
   } catch (e) {
-    error.value = getApiErrorMessage(e, 'Не удалось сохранить отпуск');
+    modalSaveError.value = getApiErrorMessage(e, 'Не удалось сохранить отпуск');
+  } finally {
+    modalSaving.value = false;
   }
 }
 
@@ -172,12 +174,14 @@ async function remove(): Promise<void> {
   }
 }
 
-function onVacationRowMenuSelect(
-  id: string,
-  v: { _id: string; startDate: string; endDate: string },
+function onVacationContextSelect(
+  vacationId: string,
+  actionId: string,
 ): void {
-  if (id === 'edit') startEdit(v);
-  else if (id === 'remove') openRemoveModal(v._id);
+  const row = vacations.vacations.find((x) => x._id === vacationId);
+  if (!row) return;
+  if (actionId === 'edit') openEditModal(row);
+  else if (actionId === 'remove') openRemoveModal(row._id);
 }
 </script>
 
@@ -194,6 +198,7 @@ function onVacationRowMenuSelect(
           <label for="fu">Участник</label>
           <select id="fu" v-model="filterUserId" class="select">
             <option value="" disabled>Выберите участника</option>
+            <!-- eslint-disable-next-line vue/valid-v-for -- ключ u._id; правило не видит u в MemberExpression -->
             <option v-for="u in users.users" :key="u._id" :value="u._id">
               {{ u.fullName }}
             </option>
@@ -211,53 +216,20 @@ function onVacationRowMenuSelect(
 
     <template v-else>
       <div class="card">
-        <div class="card-heading">
-          <div>
-            <h2 class="card-heading__title">
-              {{ editingId ? 'Редактирование периода' : 'Новый период' }}
-            </h2>
-            <p class="card-heading__subtitle">
-              {{ selectedUserName || 'Сначала выбери участника' }}. Диапазон
-              сохраняется по локальной дате без сдвига timezone.
-            </p>
-          </div>
-        </div>
-
-        <form class="field-grid" @submit.prevent="save">
-          <label class="field__label">Период</label>
-          <VueDatePicker
-            :model-value="selectedRange"
-            range
-            auto-apply
-            locale="ru"
-            format="yyyy-MM-dd"
-            :enable-time-picker="false"
-						clearable
-            @update:model-value="onRangeChange"
-          />
-
-          <div class="actions-row field-grid__full">
-            <AppButton variant="primary" type="submit">Сохранить</AppButton>
-            <AppButton
-              v-if="editingId"
-              type="button"
-              @click="resetForm"
-            >
-              Отмена
-            </AppButton>
-          </div>
-          <p v-if="error" class="error field-grid__full">{{ error }}</p>
-        </form>
-      </div>
-
-      <div class="card">
-        <div class="card-heading">
+        <div class="card-heading card-heading--row">
           <div>
             <h2 class="card-heading__title">Периоды</h2>
             <p class="card-heading__subtitle">
               Все сохранённые периоды по выбранному участнику.
             </p>
           </div>
+          <AppButton
+            variant="primary"
+            :disabled="!filterUserId"
+            @click="openCreateModal"
+          >
+            Добавить отпуск
+          </AppButton>
         </div>
 
         <AppState
@@ -269,7 +241,7 @@ function onVacationRowMenuSelect(
         <AppState
           v-else-if="vacations.vacations.length === 0"
           title="Периодов пока нет"
-          description="Создай первый диапазон, чтобы он появился в списке."
+          description="Создай первый диапазон через кнопку «Добавить отпуск»."
           tone="empty"
         />
         <div v-else class="table-wrap">
@@ -282,25 +254,39 @@ function onVacationRowMenuSelect(
               </tr>
             </thead>
             <tbody>
-              <tr v-for="v in vacations.vacations" :key="v._id">
-                <td>{{ v.startDate.slice(0, 10) }}</td>
-                <td>{{ v.endDate.slice(0, 10) }}</td>
+              <!-- eslint-disable-next-line vue/valid-v-for -- :key vacation._id; правило не учитывает vacation в MemberExpression -->
+              <tr v-for="vacation in vacations.vacations" :key="vacation._id">
+                <td>{{ vacation.startDate.slice(0, 10) }}</td>
+                <td>{{ vacation.endDate.slice(0, 10) }}</td>
                 <td>
                   <AppContextMenu
-                    :trigger-label="`Действия: ${v.startDate.slice(0, 10)} — ${v.endDate.slice(0, 10)}`"
+                    :trigger-label="`Действия: ${vacation.startDate.slice(0, 10)} — ${vacation.endDate.slice(0, 10)}`"
                     :items="[
                       { id: 'edit', label: 'Изменить' },
                       { id: 'remove', label: 'Удалить', danger: true },
                     ]"
-                    @select="(id) => onVacationRowMenuSelect(id, v)"
+                    @select="(actionId) => onVacationContextSelect(vacation._id, String(actionId))"
                   />
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p v-if="error" class="error page-error">{{ error }}</p>
       </div>
     </template>
+
+    <VacationPeriodModal
+      v-model="vacationModalOpen"
+      :mode="modalMode"
+      :vacation-id="modalVacationId ?? undefined"
+      :participant-label="selectedUserName"
+      :initial-start="modalInitialStart"
+      :initial-end="modalInitialEnd"
+      :saving="modalSaving"
+      :save-error="modalSaveError"
+      @save="onVacationModalSave"
+    />
 
     <AppConfirmModal
       v-model="confirmOpen"
@@ -323,5 +309,17 @@ function onVacationRowMenuSelect(
 .card-heading__subtitle {
   margin-top: 0.35rem;
   color: var(--muted);
+}
+
+.card-heading--row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.page-error {
+  margin-top: var(--space-3);
 }
 </style>
