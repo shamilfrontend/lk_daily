@@ -12,6 +12,7 @@ import { useAppStore } from '@/stores/app';
 import { useUsersStore } from '@/stores/users';
 import { useVacationsStore } from '@/stores/vacations';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formatCalendarDateRu } from '@/utils/dates';
 import { notifyInfo } from '@/composables/useAppNotifications';
 
 const route = useRoute();
@@ -256,11 +257,11 @@ function onVacationContextSelect(
             <tbody>
               <!-- eslint-disable-next-line vue/valid-v-for -- :key vacation._id; правило не учитывает vacation в MemberExpression -->
               <tr v-for="vacation in vacations.vacations" :key="vacation._id">
-                <td>{{ vacation.startDate.slice(0, 10) }}</td>
-                <td>{{ vacation.endDate.slice(0, 10) }}</td>
+                <td>{{ formatCalendarDateRu(vacation.startDate) }}</td>
+                <td>{{ formatCalendarDateRu(vacation.endDate) }}</td>
                 <td>
                   <AppContextMenu
-                    :trigger-label="`Действия: ${vacation.startDate.slice(0, 10)} — ${vacation.endDate.slice(0, 10)}`"
+                    :trigger-label="`Действия: ${formatCalendarDateRu(vacation.startDate)} — ${formatCalendarDateRu(vacation.endDate)}`"
                     :items="[
                       { id: 'edit', label: 'Изменить' },
                       { id: 'remove', label: 'Удалить', danger: true },

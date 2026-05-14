@@ -5,7 +5,7 @@ import { useQueueStore } from '@/stores/queue';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
-import { formatDayMonthRu, moscowTodayString } from '@/utils/dates';
+import { formatCalendarDateRu, moscowTodayString } from '@/utils/dates';
 import { notifySuccess } from '@/composables/useAppNotifications';
 import type { QueueMember } from '@/types/api';
 
@@ -81,20 +81,7 @@ export function useHomePage() {
     for (const row of queue.upcoming) {
       const presenterId = row.presenter?._id;
       if (!presenterId || map.has(presenterId)) continue;
-      const [year, month, day] = row.moscowDate.split('-').map(Number);
-      const date = new Date(Date.UTC(year, month - 1, day));
-      if (Number.isNaN(date.getTime())) {
-        map.set(presenterId, formatDayMonthRu(row.moscowDate));
-        continue;
-      }
-      const dayMonth = `${date.toLocaleDateString('ru-RU', {
-        day: 'numeric',
-        timeZone: 'UTC',
-      })} ${date.toLocaleDateString('ru-RU', {
-        month: 'short',
-        timeZone: 'UTC',
-      })}`;
-      map.set(presenterId, dayMonth);
+      map.set(presenterId, formatCalendarDateRu(row.moscowDate));
     }
     return map;
   });
@@ -168,7 +155,7 @@ export function useHomePage() {
       rows.push({
         userId: user._id,
         fullName: user.fullName,
-        dayMonth: formatDayMonthRu(upcoming.isoDate),
+        dayMonth: formatCalendarDateRu(upcoming.isoDate),
         daysLeft: upcoming.daysLeft,
       });
     }

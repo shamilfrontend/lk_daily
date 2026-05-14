@@ -26,6 +26,34 @@ const updateBody = Joi.object({
   endDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/),
 }).min(1);
 
+/** В JSON не отдаём сырой BSON Date — префикс YYYY-MM-DD был бы по UTC и сдвигал день в UI. */
+function vacationToClient(row: {
+  _id: unknown;
+  userId: unknown;
+  startDate: Date;
+  endDate: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
+  __v?: number;
+}): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    _id: row._id,
+    userId: row.userId,
+    startDate: utcDateToMoscowDateString(row.startDate),
+    endDate: utcDateToMoscowDateString(row.endDate),
+  };
+  if (row.createdAt !== undefined) {
+    out.createdAt = row.createdAt;
+  }
+  if (row.updatedAt !== undefined) {
+    out.updatedAt = row.updatedAt;
+  }
+  if (row.__v !== undefined) {
+    out.__v = row.__v;
+  }
+  return out;
+}
+
 export async function listVacations(
   req: Request,
   res: Response,
@@ -69,7 +97,7 @@ export async function listVacations(
   }
 
   const list = await Vacation.find(filter).sort({ startDate: 1 }).lean();
-  res.json(list);
+  res.json(list.map((row) => vacationToClient(row)));
 }
 
 export async function createVacation(
@@ -96,7 +124,7 @@ export async function createVacation(
     throw new HttpError(400, 'startDate must be <= endDate');
   }
   const v = await Vacation.create({ userId: user._id, startDate, endDate });
-  res.status(201).json(v);
+  res.status(201).json(vacationToClient(v.toObject()));
 }
 
 export async function updateVacation(
@@ -129,7 +157,7 @@ export async function updateVacation(
   v.startDate = start;
   v.endDate = end;
   await v.save();
-  res.json(v);
+  res.json(vacationToClient(v.toObject()));
 }
 
 export async function deleteVacation(

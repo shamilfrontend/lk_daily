@@ -14,7 +14,7 @@ import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyInfo } from '@/composables/useAppNotifications';
-import { formatDayMonthRu, moscowTodayString } from '@/utils/dates';
+import { formatCalendarDateRu, moscowTodayString } from '@/utils/dates';
 
 import type { User } from '@/types/api';
 
@@ -183,7 +183,7 @@ function normalizeBirthdayInput(value?: string): string {
 
 function formatBirthdayForTable(value?: string): string {
   if (!value) return '—';
-  return formatDayMonthRu(value);
+  return formatCalendarDateRu(value);
 }
 
 function isBirthdayToday(value?: string): boolean {

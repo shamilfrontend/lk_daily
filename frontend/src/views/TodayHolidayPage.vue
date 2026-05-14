@@ -6,6 +6,7 @@ import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formatCalendarDateTimeRu } from '@/utils/dates';
 import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
 import type { TodayHolidaysResponse } from '@/types/api';
@@ -199,7 +200,7 @@ onBeforeUnmount(() => {
       </ul>
 
       <p v-if="fetchedAt" class="holiday-meta">
-        Обновлено: {{ new Date(fetchedAt).toLocaleString('ru-RU') }}
+        Обновлено: {{ formatCalendarDateTimeRu(fetchedAt) }}
       </p>
     </div>
   </section>

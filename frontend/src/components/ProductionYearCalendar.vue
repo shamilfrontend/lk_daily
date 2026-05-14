@@ -5,6 +5,7 @@ import type {
   NonWorkingItem,
   NonWorkingItemType,
 } from '@/types/api';
+import { formatCalendarDateRu } from '@/utils/dates';
 
 interface ProductionYearCalendarProps {
 	year: number;
@@ -52,12 +53,6 @@ function pad(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-function formatRuLongDate(dateStr: string): string {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const monthName = MONTHS[m - 1];
-  return `${d} ${monthName?.toLowerCase() ?? String(m)} ${y}`;
-}
-
 const PRIORITY: Record<NonWorkingItemType, number> = {
   custom: 4,
   regional: 3,
@@ -79,22 +74,7 @@ const transferFromSet = computed(
   () => new Set(props.transfers.map((t) => t.fromDate)),
 );
 
-function primaryTypeForDate(dateStr: string): NonWorkingItemType | null {
-  const list = eventsByDate.value.get(dateStr);
-  if (!list?.length) return null;
-  let best: NonWorkingItemType = list[0].type;
-  let p = PRIORITY[best];
-  for (const it of list.slice(1)) {
-    const q = PRIORITY[it.type];
-    if (q > p) {
-      p = q;
-      best = it.type;
-    }
-  }
-  return best;
-}
-
-function titleForDate(dateStr: string): string {
+function eventDescriptorsForDate(dateStr: string): string[] {
   const parts: string[] = [];
   if (transferFromSet.value.has(dateStr)) {
     const tr = props.transfers.find((t) => t.fromDate === dateStr);
@@ -112,24 +92,45 @@ function titleForDate(dateStr: string): string {
       parts.push(label);
     }
   }
-  return parts.join(' · ') || dateStr;
+  return parts;
 }
 
-function ariaLabelForDate(dateStr: string): string {
-  const human = formatRuLongDate(dateStr);
-  const t = titleForDate(dateStr);
-  if (t === dateStr || !t) {
-    if (isWeekend(dateStr) && !primaryTypeForDate(dateStr)) {
-      return `${human}, выходной день`;
+function primaryTypeForDate(dateStr: string): NonWorkingItemType | null {
+  const list = eventsByDate.value.get(dateStr);
+  if (!list?.length) return null;
+  let best: NonWorkingItemType = list[0].type;
+  let p = PRIORITY[best];
+  for (const it of list.slice(1)) {
+    const q = PRIORITY[it.type];
+    if (q > p) {
+      p = q;
+      best = it.type;
     }
-    return `${human}, рабочий день`;
   }
-  return `${human}. ${t}`;
+  return best;
 }
 
 function isWeekend(dateStr: string): boolean {
   const w = weekdayMonZero(dateStr);
   return w >= 5;
+}
+
+function titleForDate(dateStr: string): string {
+  const parts = eventDescriptorsForDate(dateStr);
+  return parts.length ? parts.join(' · ') : formatCalendarDateRu(dateStr);
+}
+
+function ariaLabelForDate(dateStr: string): string {
+  const human = formatCalendarDateRu(dateStr);
+  const parts = eventDescriptorsForDate(dateStr);
+  const detail = parts.join(' · ');
+  if (!detail) {
+    if (isWeekend(dateStr) && !primaryTypeForDate(dateStr)) {
+      return `${human}, выходной день`;
+    }
+    return `${human}, рабочий день`;
+  }
+  return `${human}. ${detail}`;
 }
 
 function cellClass(dateStr: string): string {

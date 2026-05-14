@@ -104,8 +104,8 @@ function submit(): void {
       {{ participantLabel }}
     </p>
     <p class="modal-hint">
-      Даты сохраняются как локальный календарный день (YYYY-MM-DD), без сдвига
-      timezone.
+      Даты в поле — в формате день.месяц.год; на сервер уходит календарный день
+      без сдвига timezone.
     </p>
 
     <div class="field-grid">

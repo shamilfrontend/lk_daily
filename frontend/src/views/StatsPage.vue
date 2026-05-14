@@ -9,6 +9,7 @@ import { useAppStore } from '@/stores/app';
 import { api } from '@/api/client';
 import { useTeamsStore } from '@/stores/teams';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formatCalendarDateRu } from '@/utils/dates';
 
 import type { TeamStatsResponse } from '@/types/api';
 
@@ -170,7 +171,7 @@ watch([from, to], () => {
                 <td>{{ u.fullName }}</td>
                 <td>{{ u.presented }}</td>
                 <td>{{ u.skipped }}</td>
-                <td>{{ u.lastMoscowDate ?? '—' }}</td>
+                <td>{{ u.lastMoscowDate ? formatCalendarDateRu(u.lastMoscowDate) : '—' }}</td>
               </tr>
             </tbody>
           </table>

@@ -11,6 +11,7 @@ import { useAppStore } from '@/stores/app';
 import { useQueueStore } from '@/stores/queue';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formatCalendarDateRu } from '@/utils/dates';
 import { notifyInfo } from '@/composables/useAppNotifications';
 import type { QueueMember } from '@/types/api';
 
@@ -344,7 +345,7 @@ async function sortAz(): Promise<void> {
           </thead>
           <tbody>
             <tr v-for="row in queue.substitutions" :key="row.id">
-              <td>{{ row.moscowDate }}</td>
+              <td>{{ formatCalendarDateRu(row.moscowDate) }}</td>
               <td>{{ row.substituteFullName || row.substituteUserId }}</td>
               <td class="table-actions">
                 <AppButton

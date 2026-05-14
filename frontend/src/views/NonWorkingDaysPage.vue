@@ -8,6 +8,7 @@ import ProductionYearCalendar from '@/components/ProductionYearCalendar.vue';
 import { useAppStore } from '@/stores/app';
 import { useNonWorkingDaysStore } from '@/stores/nonWorkingDays';
 import { useTeamsStore } from '@/stores/teams';
+import { formatCalendarDateRu } from '@/utils/dates';
 
 const app = useAppStore();
 const nwd = useNonWorkingDaysStore();
@@ -141,7 +142,7 @@ function typeLabel(t: string): string {
                 v-for="(it, idx) in nwd.items"
                 :key="`${it.date}-${it.type}-${idx}`"
               >
-                <td>{{ it.date }}</td>
+                <td>{{ formatCalendarDateRu(it.date) }}</td>
                 <td>
                   <span :class="typeClass(it.type)">{{
                     typeLabel(it.type)

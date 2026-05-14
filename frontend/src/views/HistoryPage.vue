@@ -8,6 +8,7 @@ import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import { useTeamsStore } from '@/stores/teams';
 import { getApiErrorMessage } from '@/utils/apiError';
+import { formatCalendarDateRu } from '@/utils/dates';
 
 import type { HistoryRow, Team, User } from '@/types/api';
 
@@ -208,7 +209,7 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="row in rows" :key="row._id">
-              <td>{{ row.date.slice(0, 10) }}</td>
+              <td>{{ formatCalendarDateRu(row.date) }}</td>
               <td>{{ teamName(row) }}</td>
               <td>{{ userName(row) }}</td>
               <td>{{ statusLabel(row.status) }}</td>

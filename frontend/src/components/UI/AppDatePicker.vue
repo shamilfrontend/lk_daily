@@ -82,8 +82,13 @@ const internalModel = ref<Date | null>(null);
 
 function parseToDate(s: string): Date | null {
   if (!s?.trim()) return null;
-  const d = dayjs(s.trim(), 'YYYY-MM-DD', true);
-  return d.isValid() ? d.toDate() : null;
+  const t = s.trim();
+  const iso = dayjs(t, 'YYYY-MM-DD', true);
+  if (iso.isValid()) {
+    return iso.toDate();
+  }
+  const ru = dayjs(t, 'DD.MM.YYYY', true);
+  return ru.isValid() ? ru.toDate() : null;
 }
 
 function formatFromDate(d: Date): string {
@@ -160,6 +165,7 @@ const rootClass = computed(() => [attrs.class]);
         :min-date="minDate"
         :max-date="maxDate"
         :locale="ru"
+        :formats="{ input: 'dd.MM.yyyy' }"
         :text-input="true"
         :time-picker="false"
         :input-attrs="inputAttrs"
@@ -175,7 +181,8 @@ const rootClass = computed(() => [attrs.class]);
 
 <style scoped lang="scss">
 /**
- * Обёртка над @vuepic/vue-datepicker — внешнее API как раньше (строка YYYY-MM-DD).
+ * Обёртка над @vuepic/vue-datepicker: в поле — день.месяц.год, v-model — строка
+ * YYYY-MM-DD для API.
  * Темизация через --dp-* как в библиотеке: https://github.com/Vuepic/vue-datepicker
  */
 .app-datepicker-root {
