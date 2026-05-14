@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppContextMenu from '@/components/UI/AppContextMenu.vue';
 import AppButton from '@/components/UI/AppButton.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
@@ -118,6 +119,11 @@ async function remove(): Promise<void> {
     confirmLoading.value = false;
   }
 }
+
+function onTeamRowMenuSelect(id: string, t: Team): void {
+  if (id === 'edit') openEditModal(t);
+  else if (id === 'remove') openRemoveModal(t);
+}
 </script>
 
 <template>
@@ -183,18 +189,15 @@ async function remove(): Promise<void> {
               <td>{{ t.name }}</td>
               <td>{{ t.region ?? '—' }}</td>
               <td>
-                <div v-if="auth.isSuperAdmin" class="actions-row">
-                  <AppButton type="button" @click="openEditModal(t)">
-                    Изменить
-                  </AppButton>
-                  <AppButton
-                    type="button"
-                    variant="danger"
-                    @click="openRemoveModal(t)"
-                  >
-                    Удалить
-                  </AppButton>
-                </div>
+                <AppContextMenu
+                  v-if="auth.isSuperAdmin"
+                  :trigger-label="`Действия: ${t.name}`"
+                  :items="[
+                    { id: 'edit', label: 'Изменить' },
+                    { id: 'remove', label: 'Удалить', danger: true },
+                  ]"
+                  @select="(id) => onTeamRowMenuSelect(id, t)"
+                />
                 <span v-else class="teams-readonly">Просмотр</span>
               </td>
             </tr>

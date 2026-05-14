@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { VueDatePicker } from '@vuepic/vue-datepicker';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppContextMenu from '@/components/UI/AppContextMenu.vue';
 import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -170,6 +171,14 @@ async function remove(): Promise<void> {
     confirmLoading.value = false;
   }
 }
+
+function onVacationRowMenuSelect(
+  id: string,
+  v: { _id: string; startDate: string; endDate: string },
+): void {
+  if (id === 'edit') startEdit(v);
+  else if (id === 'remove') openRemoveModal(v._id);
+}
 </script>
 
 <template>
@@ -277,16 +286,14 @@ async function remove(): Promise<void> {
                 <td>{{ v.startDate.slice(0, 10) }}</td>
                 <td>{{ v.endDate.slice(0, 10) }}</td>
                 <td>
-                  <div class="actions-row">
-                    <AppButton type="button" @click="startEdit(v)">Изменить</AppButton>
-                    <AppButton
-                      type="button"
-                      variant="danger"
-                      @click="openRemoveModal(v._id)"
-                    >
-                      Удалить
-                    </AppButton>
-                  </div>
+                  <AppContextMenu
+                    :trigger-label="`Действия: ${v.startDate.slice(0, 10)} — ${v.endDate.slice(0, 10)}`"
+                    :items="[
+                      { id: 'edit', label: 'Изменить' },
+                      { id: 'remove', label: 'Удалить', danger: true },
+                    ]"
+                    @select="(id) => onVacationRowMenuSelect(id, v)"
+                  />
                 </td>
               </tr>
             </tbody>

@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
+import AppContextMenu from '@/components/UI/AppContextMenu.vue';
 import AppButton from '@/components/UI/AppButton.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppModal from '@/components/UI/AppModal.vue';
@@ -169,6 +170,12 @@ function goVacations(userId: string): void {
   void router.push({ name: 'admin-vacations', query: { userId } });
 }
 
+function onUserRowMenuSelect(id: string, u: User): void {
+  if (id === 'edit') openEditModal(u);
+  else if (id === 'vacations') goVacations(u._id);
+  else if (id === 'deactivate') openRemoveModal(u);
+}
+
 function normalizeBirthdayInput(value?: string): string {
   if (!value) return '';
   return value.slice(0, 10);
@@ -255,18 +262,20 @@ function isBirthdayToday(value?: string): boolean {
                 >
               </td>
               <td>
-                <div class="actions-row">
-                  <AppButton type="button" @click="openEditModal(u)">Изменить</AppButton>
-                  <AppButton type="button" @click="goVacations(u._id)">Отпуска</AppButton>
-                  <AppButton
-                    type="button"
-                    variant="danger"
-                    :disabled="!u.isActive"
-                    @click="openRemoveModal(u)"
-                  >
-                    Деактивировать
-                  </AppButton>
-                </div>
+                <AppContextMenu
+                  :trigger-label="`Действия: ${u.fullName}`"
+                  :items="[
+                    { id: 'edit', label: 'Изменить' },
+                    { id: 'vacations', label: 'Отпуска' },
+                    {
+                      id: 'deactivate',
+                      label: 'Деактивировать',
+                      danger: true,
+                      disabled: !u.isActive,
+                    },
+                  ]"
+                  @select="(id) => onUserRowMenuSelect(id, u)"
+                />
               </td>
             </tr>
           </tbody>

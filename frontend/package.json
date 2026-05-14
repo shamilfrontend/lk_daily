@@ -16,6 +16,7 @@
     "postinstall": "playwright install chromium"
   },
   "dependencies": {
+    "@popperjs/core": "^2.11.8",
     "@kyvg/vue3-notification": "^3.4.2",
     "@vuepic/vue-datepicker": "^12.1.0",
     "axios": "^1.7.9",
