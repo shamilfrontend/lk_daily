@@ -103,7 +103,7 @@ function onPeriodMenuSelect(
             <span
               v-if="month.hasConflict"
               class="schedule-grid__conflict-dot"
-              title="Пересечение отпусков внутри роли"
+              title="Нарушение правил роли"
             />
           </th>
         </tr>

@@ -1,5 +1,6 @@
 import type { UserJobRole } from '@/constants/userJobRoles';
 import { JOB_ROLE_COLORS, jobRoleSortIndex } from '@/constants/userJobRoles';
+import { ROLE_SOLO_COVERAGE_MAX_DAYS } from '@/constants/roleVacationRules';
 import type { User, Vacation } from '@/types/api';
 
 export const MONTH_LABELS_SHORT = [
@@ -43,10 +44,16 @@ export interface ConflictParticipant {
   fullName: string;
 }
 
+export type RoleConflictKind =
+  | 'overlap'
+  | 'no_coverage'
+  | 'solo_coverage_limit';
+
 export interface ConflictRange {
   role: UserJobRole;
   start: string;
   end: string;
+  kind: RoleConflictKind;
   participants: ConflictParticipant[];
 }
 
@@ -104,81 +111,17 @@ export function dayOffsetInYear(ymd: string, year: number): number {
   return Math.round((day.getTime() - yearStart.getTime()) / 86_400_000);
 }
 
-export function detectSameRoleConflictDays(
-  users: User[],
-  vacations: Vacation[],
-  year: number,
-): Set<string> {
-  const userById = new Map(users.map((u) => [u._id, u]));
-  const vacationsByRole = new Map<
-    UserJobRole,
-    { userId: string; start: string; end: string }[]
-  >();
-
-  for (const vacation of vacations) {
-    const user = userById.get(vacation.userId);
-    const role = user?.jobRole;
-    if (!role) continue;
-    const clamped = clampIntervalToYear(
-      vacation.startDate,
-      vacation.endDate,
-      year,
-    );
-    if (!clamped) continue;
-    const list = vacationsByRole.get(role) ?? [];
-    list.push({
-      userId: vacation.userId,
-      start: clamped.start,
-      end: clamped.end,
-    });
-    vacationsByRole.set(role, list);
-  }
-
-  const conflictDays = new Set<string>();
-  const totalDays = daysInYear(year);
-  const yearStart = `${year}-01-01`;
-
-  for (const intervals of vacationsByRole.values()) {
-    const byUser = new Map<string, { start: string; end: string }[]>();
-    for (const item of intervals) {
-      const list = byUser.get(item.userId) ?? [];
-      list.push({ start: item.start, end: item.end });
-      byUser.set(item.userId, list);
-    }
-    if (byUser.size < 2) continue;
-
-    for (let offset = 0; offset < totalDays; offset += 1) {
-      const dayDate = parseYmd(yearStart);
-      dayDate.setUTCDate(dayDate.getUTCDate() + offset);
-      const day = formatYmdUtc(dayDate);
-      let onVacationCount = 0;
-      for (const userIntervals of byUser.values()) {
-        const isAway = userIntervals.some(
-          (interval) => day >= interval.start && day <= interval.end,
-        );
-        if (isAway) onVacationCount += 1;
-      }
-      if (onVacationCount >= 2) {
-        conflictDays.add(day);
-      }
-    }
-  }
-
-  return conflictDays;
-}
-
-function detectConflictDaysForRole(
+function buildRoleVacationIntervalsByUser(
   users: User[],
   vacations: Vacation[],
   year: number,
   role: UserJobRole,
-): Set<string> {
+): Map<string, { start: string; end: string }[]> {
   const roleUserIds = new Set(
     users.filter((u) => u.jobRole === role).map((u) => u._id),
   );
-  if (roleUserIds.size < 2) return new Set();
-
   const byUser = new Map<string, { start: string; end: string }[]>();
+
   for (const vacation of vacations) {
     if (!roleUserIds.has(vacation.userId)) continue;
     const clamped = clampIntervalToYear(
@@ -191,9 +134,42 @@ function detectConflictDaysForRole(
     list.push({ start: clamped.start, end: clamped.end });
     byUser.set(vacation.userId, list);
   }
-  if (byUser.size < 2) return new Set();
 
-  const conflictDays = new Set<string>();
+  return byUser;
+}
+
+function countOnVacation(
+  byUser: Map<string, { start: string; end: string }[]>,
+  day: string,
+): number {
+  let onVacationCount = 0;
+  for (const userIntervals of byUser.values()) {
+    const isAway = userIntervals.some(
+      (interval) => day >= interval.start && day <= interval.end,
+    );
+    if (isAway) onVacationCount += 1;
+  }
+  return onVacationCount;
+}
+
+function detectConflictDaysByKindForRole(
+  users: User[],
+  vacations: Vacation[],
+  year: number,
+  role: UserJobRole,
+): Map<RoleConflictKind, Set<string>> {
+  const roleSize = users.filter((u) => u.jobRole === role).length;
+  const result = new Map<RoleConflictKind, Set<string>>();
+  if (roleSize < 2) return result;
+
+  const byUser = buildRoleVacationIntervalsByUser(users, vacations, year, role);
+  if (byUser.size < 2) return result;
+
+  const overlap = new Set<string>();
+  const noCoverage = new Set<string>();
+  const soloCoverageLimit = new Set<string>();
+  const soloCoverageDays: string[] = [];
+
   const totalDays = daysInYear(year);
   const yearStart = `${year}-01-01`;
 
@@ -201,14 +177,79 @@ function detectConflictDaysForRole(
     const dayDate = parseYmd(yearStart);
     dayDate.setUTCDate(dayDate.getUTCDate() + offset);
     const day = formatYmdUtc(dayDate);
-    let onVacationCount = 0;
-    for (const userIntervals of byUser.values()) {
-      const isAway = userIntervals.some(
-        (interval) => day >= interval.start && day <= interval.end,
-      );
-      if (isAway) onVacationCount += 1;
+    const onVacationCount = countOnVacation(byUser, day);
+
+    if (roleSize === 2) {
+      if (onVacationCount >= 2) {
+        overlap.add(day);
+      }
+      continue;
     }
-    if (onVacationCount >= 2) {
+
+    if (onVacationCount >= roleSize) {
+      noCoverage.add(day);
+    }
+    if (onVacationCount === roleSize - 1) {
+      soloCoverageDays.push(day);
+    }
+  }
+
+  if (roleSize >= 3) {
+    const soloRanges = mergeSortedDaysToRanges([...soloCoverageDays].sort());
+    for (const { start, end } of soloRanges) {
+      const spanDays = vacationDurationDays(start, end);
+      if (spanDays > ROLE_SOLO_COVERAGE_MAX_DAYS) {
+        for (const day of enumerateDaysBetween(start, end)) {
+          soloCoverageLimit.add(day);
+        }
+      }
+    }
+  }
+
+  if (overlap.size > 0) result.set('overlap', overlap);
+  if (noCoverage.size > 0) result.set('no_coverage', noCoverage);
+  if (soloCoverageLimit.size > 0) {
+    result.set('solo_coverage_limit', soloCoverageLimit);
+  }
+
+  return result;
+}
+
+function detectConflictDaysForRole(
+  users: User[],
+  vacations: Vacation[],
+  year: number,
+  role: UserJobRole,
+): Set<string> {
+  const conflictDays = new Set<string>();
+  const byKind = detectConflictDaysByKindForRole(
+    users,
+    vacations,
+    year,
+    role,
+  );
+  for (const days of byKind.values()) {
+    for (const day of days) {
+      conflictDays.add(day);
+    }
+  }
+  return conflictDays;
+}
+
+export function detectSameRoleConflictDays(
+  users: User[],
+  vacations: Vacation[],
+  year: number,
+): Set<string> {
+  const roles = new Set<UserJobRole>();
+  for (const user of users) {
+    if (user.jobRole) roles.add(user.jobRole);
+  }
+
+  const conflictDays = new Set<string>();
+  for (const role of roles) {
+    const roleDays = detectConflictDaysForRole(users, vacations, year, role);
+    for (const day of roleDays) {
       conflictDays.add(day);
     }
   }
@@ -283,22 +324,30 @@ export function buildSameRoleConflictRanges(
   const ranges: ConflictRange[] = [];
 
   for (const role of roles) {
-    const conflictDays = detectConflictDaysForRole(users, vacations, year, role);
-    const dayRanges = mergeSortedDaysToRanges([...conflictDays].sort());
-    for (const { start, end } of dayRanges) {
-      ranges.push({
-        role,
-        start,
-        end,
-        participants: participantsOverlappingRange(
-          users,
-          vacations,
-          year,
+    const byKind = detectConflictDaysByKindForRole(
+      users,
+      vacations,
+      year,
+      role,
+    );
+    for (const [kind, conflictDays] of byKind) {
+      const dayRanges = mergeSortedDaysToRanges([...conflictDays].sort());
+      for (const { start, end } of dayRanges) {
+        ranges.push({
           role,
           start,
           end,
-        ),
-      });
+          kind,
+          participants: participantsOverlappingRange(
+            users,
+            vacations,
+            year,
+            role,
+            start,
+            end,
+          ),
+        });
+      }
     }
   }
 

@@ -115,8 +115,109 @@ describe('vacationSchedule', () => {
       role: 'frontend',
       start: '2026-06-15',
       end: '2026-06-20',
+      kind: 'overlap',
     });
     expect(ranges[0].participants.map((p) => p.fullName).sort()).toEqual(['A', 'B']);
+  });
+
+  it('3 frontend: 2 в отпуске 5 дней — без конфликта', () => {
+    const threeFrontend: User[] = [
+      ...users.filter((u) => u.jobRole === 'frontend'),
+      {
+        _id: 'u4',
+        fullName: 'D',
+        teamId: 't1',
+        isActive: true,
+        jobRole: 'frontend',
+      },
+    ];
+    const vacations: Vacation[] = [
+      {
+        _id: 'v1',
+        userId: 'u1',
+        startDate: '2026-07-01',
+        endDate: '2026-07-05',
+      },
+      {
+        _id: 'v2',
+        userId: 'u2',
+        startDate: '2026-07-01',
+        endDate: '2026-07-05',
+      },
+    ];
+    const conflicts = detectSameRoleConflictDays(threeFrontend, vacations, 2026);
+    expect(conflicts.size).toBe(0);
+  });
+
+  it('3 frontend: 2 в отпуске 8 дней подряд — конфликт solo_coverage на всей серии', () => {
+    const threeFrontend: User[] = [
+      ...users.filter((u) => u.jobRole === 'frontend'),
+      {
+        _id: 'u4',
+        fullName: 'D',
+        teamId: 't1',
+        isActive: true,
+        jobRole: 'frontend',
+      },
+    ];
+    const vacations: Vacation[] = [
+      {
+        _id: 'v1',
+        userId: 'u1',
+        startDate: '2026-07-01',
+        endDate: '2026-07-08',
+      },
+      {
+        _id: 'v2',
+        userId: 'u2',
+        startDate: '2026-07-01',
+        endDate: '2026-07-08',
+      },
+    ];
+    const conflicts = detectSameRoleConflictDays(threeFrontend, vacations, 2026);
+    expect(conflicts.size).toBe(8);
+    expect(conflicts.has('2026-07-01')).toBe(true);
+    expect(conflicts.has('2026-07-08')).toBe(true);
+    const ranges = buildSameRoleConflictRanges(threeFrontend, vacations, 2026);
+    expect(ranges).toHaveLength(1);
+    expect(ranges[0].kind).toBe('solo_coverage_limit');
+  });
+
+  it('3 frontend: все 3 в отпуске — конфликт no_coverage', () => {
+    const threeFrontend: User[] = [
+      ...users.filter((u) => u.jobRole === 'frontend'),
+      {
+        _id: 'u4',
+        fullName: 'D',
+        teamId: 't1',
+        isActive: true,
+        jobRole: 'frontend',
+      },
+    ];
+    const vacations: Vacation[] = [
+      {
+        _id: 'v1',
+        userId: 'u1',
+        startDate: '2026-08-10',
+        endDate: '2026-08-12',
+      },
+      {
+        _id: 'v2',
+        userId: 'u2',
+        startDate: '2026-08-10',
+        endDate: '2026-08-12',
+      },
+      {
+        _id: 'v3',
+        userId: 'u4',
+        startDate: '2026-08-11',
+        endDate: '2026-08-11',
+      },
+    ];
+    const conflicts = detectSameRoleConflictDays(threeFrontend, vacations, 2026);
+    expect(conflicts.has('2026-08-11')).toBe(true);
+    const ranges = buildSameRoleConflictRanges(threeFrontend, vacations, 2026);
+    expect(ranges.some((r) => r.kind === 'no_coverage')).toBe(true);
   });
 
   it('sortScheduleRowsByRole группирует участников по роли и ФИО', () => {

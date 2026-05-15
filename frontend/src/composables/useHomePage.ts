@@ -4,13 +4,19 @@ import { useAuthStore } from '@/stores/auth';
 import { useQueueStore } from '@/stores/queue';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
+import { useVacationsStore } from '@/stores/vacations';
 import { getApiErrorMessage } from '@/utils/apiError';
-import { formatCalendarDateRu, moscowTodayString } from '@/utils/dates';
+import {
+  formatCalendarDateRu,
+  formatVacationRangeShortRu,
+  moscowTodayString,
+} from '@/utils/dates';
 import { notifySuccess } from '@/composables/useAppNotifications';
 import type { QueueMember } from '@/types/api';
 
 const UPCOMING_DAYS = 60;
 const UPCOMING_BIRTHDAY_DAYS = 30;
+const UPCOMING_VACATION_DAYS = 30;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NO_AVAILABLE_PRESENTERS = 'Нет доступных докладчиков';
 
@@ -19,6 +25,29 @@ interface UpcomingBirthdayRow {
   fullName: string;
   dayMonth: string;
   daysLeft: number;
+}
+
+interface UpcomingVacationRow {
+  vacationId: string;
+  userId: string;
+  fullName: string;
+  startDate: string;
+  endDate: string;
+  periodLabel: string;
+  isOngoing: boolean;
+}
+
+function addDaysToYmd(ymd: string, days: number): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!match) return ymd;
+  const date = new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])),
+  );
+  date.setUTCDate(date.getUTCDate() + days);
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(date.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function buildUpcomingBirthdayDate(
@@ -56,6 +85,7 @@ export function useHomePage() {
   const queue = useQueueStore();
   const teams = useTeamsStore();
   const users = useUsersStore();
+  const vacations = useVacationsStore();
 
   const actionError = ref<string | null>(null);
   const pageError = ref<string | null>(null);
@@ -200,6 +230,54 @@ export function useHomePage() {
     upcomingBirthdays.value.filter((item) => item.daysLeft > 0),
   );
 
+  const upcomingVacations = computed<UpcomingVacationRow[]>(() => {
+    const teamId = app.selectedTeamId;
+    if (!teamId) return [];
+
+    const nameByUserId = new Map(
+      users.users
+        .filter((user) => user.teamId === teamId)
+        .map((user) => [user._id, user.fullName]),
+    );
+
+    const rows: UpcomingVacationRow[] = [];
+    for (const vacation of vacations.vacations) {
+      const fullName = nameByUserId.get(vacation.userId);
+      if (!fullName) continue;
+      if (vacation.endDate < today) continue;
+
+      const isOngoing =
+        vacation.startDate <= today && vacation.endDate >= today;
+      rows.push({
+        vacationId: vacation._id,
+        userId: vacation.userId,
+        fullName,
+        startDate: vacation.startDate,
+        endDate: vacation.endDate,
+        periodLabel: formatVacationRangeShortRu(
+          vacation.startDate,
+          vacation.endDate,
+        ),
+        isOngoing,
+      });
+    }
+
+    return rows.sort((a, b) => {
+      if (a.startDate !== b.startDate) {
+        return a.startDate.localeCompare(b.startDate);
+      }
+      return a.fullName.localeCompare(b.fullName, 'ru');
+    });
+  });
+
+  const ongoingVacationRows = computed(() =>
+    upcomingVacations.value.filter((row) => row.isOngoing),
+  );
+
+  const upcomingVacationsSoon = computed(() =>
+    upcomingVacations.value.filter((row) => !row.isOngoing),
+  );
+
   const hasSelectedTeam = computed(() => Boolean(app.selectedTeamId));
   const canRefresh = computed(() => hasSelectedTeam.value && !queue.loading);
 
@@ -217,15 +295,19 @@ export function useHomePage() {
     const teamId = app.selectedTeamId;
     if (!teamId) return;
 
+    const toDate = addDaysToYmd(today, UPCOMING_VACATION_DAYS);
+
     try {
       await Promise.all([
         queue.loadAll(teamId, UPCOMING_DAYS),
         users.fetchUsersAllAccessibleTeams(false),
+        vacations.fetchVacations({ teamId, fromDate: today, toDate }),
       ]);
     } catch (error: unknown) {
       pageError.value =
         queue.error ??
         users.error ??
+        vacations.error ??
         getApiErrorMessage(error, 'Не удалось обновить главную страницу');
     }
   }
@@ -295,8 +377,11 @@ export function useHomePage() {
     substitutionHint,
     todayBirthdayNames,
     today,
+    ongoingVacationRows,
     upcomingBirthdays,
     upcomingBirthdaysNextMonth,
+    upcomingVacations,
+    upcomingVacationsSoon,
     queueDateByUserId,
     userMap,
     vacationCount,

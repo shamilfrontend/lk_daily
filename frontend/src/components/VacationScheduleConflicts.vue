@@ -2,7 +2,7 @@
 import { jobRoleLabel } from '@/constants/userJobRoles';
 import { formatCalendarDateRu } from '@/utils/dates';
 
-import type { ConflictRange } from '@/utils/vacationSchedule';
+import type { ConflictRange, RoleConflictKind } from '@/utils/vacationSchedule';
 
 interface VacationScheduleConflictsProps {
   ranges: ConflictRange[];
@@ -20,17 +20,30 @@ function formatRange(start: string, end: string): string {
   }
   return `${formatCalendarDateRu(start)} — ${formatCalendarDateRu(end)}`;
 }
+
+function conflictKindLabel(kind: RoleConflictKind): string {
+  switch (kind) {
+    case 'overlap':
+      return 'Пересечение отпусков (2 в роли)';
+    case 'no_coverage':
+      return 'Никто не в строю';
+    case 'solo_coverage_limit':
+      return 'Один в строю более 7 дней';
+    default:
+      return 'Нарушение правил роли';
+  }
+}
 </script>
 
 <template>
   <section class="conflicts-panel">
     <div class="conflicts-panel__head">
-      <h2 class="conflicts-panel__title">Пересечения по ролям</h2>
+      <h2 class="conflicts-panel__title">Нарушения правил по ролям</h2>
       <span class="conflicts-panel__count">{{ ranges.length }}</span>
     </div>
 
     <p v-if="ranges.length === 0" class="conflicts-panel__empty">
-      Пересечений в этом году нет.
+      Нарушений правил роли в этом году нет.
     </p>
 
     <ul v-else class="conflicts-panel__list">
@@ -41,6 +54,7 @@ function formatRange(start: string, end: string): string {
           @click="emit('focus', range.participants.map((p) => p.userId))"
         >
           <span class="conflicts-panel__dates">{{ formatRange(range.start, range.end) }}</span>
+          <span class="conflicts-panel__kind">{{ conflictKindLabel(range.kind) }}</span>
           <span class="conflicts-panel__role">{{ jobRoleLabel(range.role) }}</span>
           <span class="conflicts-panel__names">
             {{ range.participants.map((p) => p.fullName).join(', ') }}
@@ -125,6 +139,12 @@ function formatRange(start: string, end: string): string {
 .conflicts-panel__dates {
   font-weight: 600;
   font-size: 0.85rem;
+}
+
+.conflicts-panel__kind {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--danger, #dc2626);
 }
 
 .conflicts-panel__role {

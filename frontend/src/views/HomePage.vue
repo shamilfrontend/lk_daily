@@ -24,9 +24,12 @@ const {
   queueSize,
   refresh,
   substitutionHint,
+  ongoingVacationRows,
   todayBirthdayNames,
   upcomingBirthdays,
   upcomingBirthdaysNextMonth,
+  upcomingVacations,
+  upcomingVacationsSoon,
   queueDateByUserId,
   userMap,
   vacationCount,
@@ -152,7 +155,7 @@ const {
           <div class="card">
             <div class="card-heading">
               <div>
-                <h2 class="card-heading__title">Ближайщие дни рождения</h2>
+                <h2 class="card-heading__title">Ближайшие дни рождения</h2>
               </div>
             </div>
 
@@ -185,6 +188,46 @@ const {
               >
                 <span>{{ item.fullName }}</span>
                 <span class="badge">{{ item.dayMonth }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="card">
+            <div class="card-heading">
+              <div>
+                <h2 class="card-heading__title">Ближайшие отпуска</h2>
+              </div>
+            </div>
+
+            <p
+              v-for="row in ongoingVacationRows"
+              :key="row.vacationId"
+              class="hero-card__reason vacation-today-text"
+            >
+              Сейчас в отпуске: {{ row.fullName }} ({{ row.periodLabel }})
+            </p>
+
+            <AppState
+              v-if="upcomingVacations.length === 0"
+              title="Нет отпусков в ближайший месяц"
+              description="Добавь периоды отпуска в графике, чтобы видеть напоминания."
+              compact
+              tone="empty"
+            />
+            <p
+              v-else-if="upcomingVacationsSoon.length === 0"
+              class="hero-card__reason hero-card__reason--muted"
+            >
+              В ближайшие 30 дней новых отпусков нет.
+            </p>
+            <ul v-else class="birthday-list">
+              <li
+                v-for="row in upcomingVacationsSoon"
+                :key="row.vacationId"
+                class="birthday-list__item"
+              >
+                <span>{{ row.fullName }}</span>
+                <span class="badge">{{ row.periodLabel }}</span>
               </li>
             </ul>
           </div>
@@ -334,7 +377,8 @@ const {
   gap: var(--space-3);
 }
 
-.birthday-today-text {
+.birthday-today-text,
+.vacation-today-text {
   color: #d20f39;
 }
 

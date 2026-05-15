@@ -185,7 +185,7 @@ watch(vacationModalOpen, (open) => {
   <section class="page-shell">
     <AppPageHeader
       title="График отпусков"
-      subtitle="Все участники команды и их отпуска по месяцам. Красная обводка — два и более человека одной роли в отпуске одновременно."
+      subtitle="Отпуска по месяцам. Красная обводка — нарушение правил роли: при 2 человеках отпуска не пересекаются; при 3+ всегда минимум один в строю, не более 7 дней подряд с одним в строю."
     >
       <template v-if="canManageVacations" #actions>
         <AppButton type="button" variant="primary" @click="openCreateVacation">
@@ -295,7 +295,7 @@ watch(vacationModalOpen, (open) => {
             v-if="selectedBar.bar.hasConflict"
             class="vacation-detail__conflict"
           >
-            Есть пересечение по роли
+            Нарушение правил роли
           </p>
           <template v-if="selectedBarLaborCompliance">
             <p class="vacation-detail__labor">
@@ -339,7 +339,7 @@ watch(vacationModalOpen, (open) => {
             </li>
             <li class="schedule-legend__item schedule-legend__item--conflict">
               <span class="schedule-legend__swatch schedule-legend__swatch--conflict" />
-              Пересечение внутри роли
+              Нарушение правил роли
             </li>
             <li class="schedule-legend__item schedule-legend__item--labor">
               <span class="schedule-legend__swatch schedule-legend__swatch--labor" />
