@@ -8,6 +8,8 @@ import mongoose, {
 export interface IQueueMember {
   userId: Types.ObjectId;
   active: boolean;
+  /** Сколько раз пропустили без отработки (приоритет при выборе докладчика). */
+  skipDebt?: number;
 }
 
 export interface IQueueOrder extends Document {
@@ -27,6 +29,7 @@ const queueMemberSchema = new Schema<IQueueMember>(
       required: true,
     },
     active: { type: Boolean, default: true },
+    skipDebt: { type: Number, default: 0, min: 0 },
   },
   { _id: false },
 );

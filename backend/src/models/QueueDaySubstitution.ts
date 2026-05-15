@@ -9,6 +9,8 @@ export interface IQueueDaySubstitution extends Document {
   teamId: Types.ObjectId;
   /** Дата в календаре Москвы YYYY-MM-DD */
   moscowDate: string;
+  /** Канонический докладчик по очереди, которого подменяют. */
+  canonicalUserId?: Types.ObjectId;
   substituteUserId: Types.ObjectId;
   createdAt: Date;
 }
@@ -26,6 +28,11 @@ const queueDaySubstitutionSchema = new Schema<IQueueDaySubstitution>(
       required: true,
       trim: true,
       match: /^\d{4}-\d{2}-\d{2}$/,
+    },
+    canonicalUserId: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: false,
     },
     substituteUserId: {
       type: Schema.Types.ObjectId,

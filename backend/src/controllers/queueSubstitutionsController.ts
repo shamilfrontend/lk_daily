@@ -6,7 +6,10 @@ import { HttpError } from '../middlewares/errorHandler.js';
 import { QueueDaySubstitution } from '../models/QueueDaySubstitution.js';
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
-import { swapSubstitutionDays as applySubstitutionDaySwap } from '../services/queueService.js';
+import {
+  resolveCanonicalForTeamMoscowDate,
+  swapSubstitutionDays as applySubstitutionDaySwap,
+} from '../services/queueService.js';
 import { assertTeamAccess } from '../utils/authz.js';
 
 const moscowDateRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -15,6 +18,7 @@ const createBody = Joi.object({
   teamId: Joi.string().required(),
   moscowDate: Joi.string().pattern(moscowDateRe).required(),
   substituteUserId: Joi.string().required(),
+  canonicalUserId: Joi.string().optional(),
 });
 
 const swapBody = Joi.object({
@@ -80,16 +84,20 @@ export async function createSubstitution(
   if (error) {
     throw new HttpError(400, error.message);
   }
-  const { teamId, moscowDate, substituteUserId } = value as {
+  const { teamId, moscowDate, substituteUserId, canonicalUserId } = value as {
     teamId: string;
     moscowDate: string;
     substituteUserId: string;
+    canonicalUserId?: string;
   };
   if (
     !mongoose.isValidObjectId(teamId) ||
     !mongoose.isValidObjectId(substituteUserId)
   ) {
     throw new HttpError(400, 'Invalid id');
+  }
+  if (canonicalUserId && !mongoose.isValidObjectId(canonicalUserId)) {
+    throw new HttpError(400, 'Invalid canonicalUserId');
   }
   assertTeamAccess(req.auth, teamId);
 
@@ -111,9 +119,38 @@ export async function createSubstitution(
     );
   }
 
+  let canonicalOid: mongoose.Types.ObjectId;
+  if (canonicalUserId) {
+    const canonicalUser = await User.findOne({
+      _id: canonicalUserId,
+      teamId: team._id,
+      isActive: true,
+    })
+      .select('_id')
+      .lean();
+    if (!canonicalUser) {
+      throw new HttpError(
+        400,
+        'canonicalUserId must be an active user of this team',
+      );
+    }
+    canonicalOid = canonicalUser._id;
+  } else {
+    const resolved = await resolveCanonicalForTeamMoscowDate(teamId, moscowDate);
+    if (!resolved) {
+      throw new HttpError(400, 'No canonical presenter for this date');
+    }
+    canonicalOid = resolved;
+  }
+
   const doc = await QueueDaySubstitution.findOneAndUpdate(
     { teamId: team._id, moscowDate },
-    { $set: { substituteUserId: subUser._id } },
+    {
+      $set: {
+        canonicalUserId: canonicalOid,
+        substituteUserId: subUser._id,
+      },
+    },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   ).lean();
 
@@ -122,6 +159,7 @@ export async function createSubstitution(
     id: doc!._id.toString(),
     teamId,
     moscowDate,
+    canonicalUserId: canonicalOid.toString(),
     substituteUserId: subUser._id.toString(),
     substituteFullName: subUser.fullName,
   });

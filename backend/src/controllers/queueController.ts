@@ -14,8 +14,10 @@ import {
   getQueueState,
   getUpcomingPresenters,
   presentationLogExistsForTeamMoscowDay,
+  normalizeQueueMember,
   recordPresentation,
   replaceQueueOrder,
+  skipCurrentPresenter,
   sortQueueAlphabetically,
   type QueueMemberPlain,
 } from '../services/queueService.js';
@@ -31,13 +33,10 @@ const orderBody = Joi.object({
       Joi.object({
         userId: Joi.string().required(),
         active: Joi.boolean().default(true),
+        skipDebt: Joi.number().integer().min(0).default(0),
       }),
     )
     .required(),
-});
-
-const skipBody = Joi.object({
-  rotate: Joi.boolean().default(true),
 });
 
 function mapPresenterError(code: string): HttpError {
@@ -234,7 +233,7 @@ export async function present(req: Request, res: Response): Promise<void> {
   assertTeamAccess(req.auth, teamId);
 
   try {
-    const out = await recordPresentation(teamId, 'presented');
+    const out = await recordPresentation(teamId);
     res.json(out);
   } catch (e) {
     throwPresentationHttpError(e);
@@ -248,18 +247,9 @@ export async function skip(req: Request, res: Response): Promise<void> {
   }
 
   assertTeamAccess(req.auth, teamId);
-  const { error, value } = skipBody.validate(req.body ?? {}, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-  if (error) {
-    throw new HttpError(400, error.message);
-  }
 
   try {
-    const out = await recordPresentation(teamId, 'skipped', new Date(), {
-      rotateQueue: value.rotate !== false,
-    });
+    const out = await skipCurrentPresenter(teamId);
     res.json(out);
   } catch (e) {
     throwPresentationHttpError(e);
@@ -279,7 +269,11 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
   if (error) {
     throw new HttpError(400, error.message);
   }
-  const rows = value.members as { userId: string; active: boolean }[];
+  const rows = value.members as {
+    userId: string;
+    active: boolean;
+    skipDebt?: number;
+  }[];
   for (const row of rows) {
     if (!mongoose.isValidObjectId(row.userId)) {
       throw new HttpError(400, `Invalid user id: ${row.userId}`);
@@ -305,16 +299,20 @@ export async function putOrder(req: Request, res: Response): Promise<void> {
     }
     seen.add(row.userId);
   }
-  const membersPlain: QueueMemberPlain[] = rows.map((r) => ({
-    userId: new mongoose.Types.ObjectId(r.userId),
-    active: r.active,
-  }));
+  const membersPlain: QueueMemberPlain[] = rows.map((r) =>
+    normalizeQueueMember({
+      userId: new mongoose.Types.ObjectId(r.userId),
+      active: r.active,
+      skipDebt: r.skipDebt,
+    }),
+  );
   await replaceQueueOrder(new mongoose.Types.ObjectId(teamId), membersPlain);
   res.json({
     ok: true,
     members: membersPlain.map((m) => ({
       userId: m.userId.toString(),
       active: m.active,
+      skipDebt: m.skipDebt,
     })),
   });
 }

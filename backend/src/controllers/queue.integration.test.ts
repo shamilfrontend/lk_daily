@@ -18,7 +18,10 @@ import { User } from '../models/User.js';
 import { QueueOrder } from '../models/QueueOrder.js';
 import { Admin } from '../models/Admin.js';
 import { PresentationLog } from '../models/PresentationLog.js';
+import { QueueDaySubstitution } from '../models/QueueDaySubstitution.js';
+import { Vacation } from '../models/Vacation.js';
 import * as dateHelpers from '../utils/dateHelpers.js';
+import { moscowDateStringToUtc } from '../utils/dateHelpers.js';
 import { invalidateCalendarCache } from '../services/calendarService.js';
 
 describe('queue API (integration)', () => {
@@ -124,11 +127,74 @@ describe('queue API (integration)', () => {
     expect(cur.body.alreadyRecordedToday).toBe(true);
   });
 
-  it('POST /queue/skip records skip status', async () => {
+  it('POST /queue/skip cycles through three members without swapping only two', async () => {
     invalidateCalendarCache();
     await PresentationLog.deleteMany({
       teamId: new mongoose.Types.ObjectId(teamId),
     });
+
+    const userC = (
+      await User.create({
+        teamId: new mongoose.Types.ObjectId(teamId),
+        fullName: 'Carol',
+        isActive: true,
+      })
+    )._id.toString();
+
+    await QueueOrder.updateOne(
+      { teamId: new mongoose.Types.ObjectId(teamId) },
+      {
+        $set: {
+          members: [
+            { userId: new mongoose.Types.ObjectId(userA), active: true },
+            { userId: new mongoose.Types.ObjectId(userB), active: true },
+            { userId: new mongoose.Types.ObjectId(userC), active: true },
+          ],
+        },
+      },
+    );
+
+    vi.restoreAllMocks();
+    vi.spyOn(dateHelpers, 'getMoscowDateString').mockReturnValue('2026-04-17');
+    invalidateCalendarCache();
+
+    const skipOnce = await request(app)
+      .post('/api/queue/skip')
+      .query({ teamId })
+      .set('Authorization', `Bearer ${token}`);
+    expect(skipOnce.status).toBe(200);
+    const afterOne = await request(app)
+      .get('/api/queue/current')
+      .query({ teamId });
+    expect(afterOne.body.result.user._id).toBe(userB);
+
+    const skipTwice = await request(app)
+      .post('/api/queue/skip')
+      .query({ teamId })
+      .set('Authorization', `Bearer ${token}`);
+    expect(skipTwice.status).toBe(200);
+    const afterTwo = await request(app)
+      .get('/api/queue/current')
+      .query({ teamId });
+    expect(afterTwo.body.result.user._id).toBe(userC);
+  });
+
+  it('POST /queue/skip promotes queue without journal entry', async () => {
+    invalidateCalendarCache();
+    await PresentationLog.deleteMany({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+    await QueueOrder.updateOne(
+      { teamId: new mongoose.Types.ObjectId(teamId) },
+      {
+        $set: {
+          members: [
+            { userId: new mongoose.Types.ObjectId(userA), active: true },
+            { userId: new mongoose.Types.ObjectId(userB), active: true },
+          ],
+        },
+      },
+    );
 
     vi.restoreAllMocks();
     vi.spyOn(dateHelpers, 'getMoscowDateString').mockReturnValue('2026-04-14');
@@ -140,13 +206,234 @@ describe('queue API (integration)', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
+    expect(res.body.newUserIds[0]).toBe(userB);
+    expect(res.body.newUserIds[1]).toBe(userA);
 
-    const log = await mongoose.connection
-      .collection('presentationlogs')
-      .findOne({
+    const log = await PresentationLog.findOne({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+    expect(log).toBeNull();
+
+    const cur = await request(app).get('/api/queue/current').query({ teamId });
+    expect(cur.status).toBe(200);
+    expect(cur.body.alreadyRecordedToday).toBe(false);
+    expect(cur.body.result.kind).toBe('ok');
+    expect(cur.body.result.user._id).toBe(userB);
+
+    const presentRes = await request(app)
+      .post('/api/queue/present')
+      .query({ teamId })
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(presentRes.status).toBe(200);
+
+    const logAfterPresent = await PresentationLog.findOne({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+    expect(logAfterPresent?.status).toBe('presented');
+
+    const curAfter = await request(app)
+      .get('/api/queue/current')
+      .query({ teamId });
+    expect(curAfter.body.alreadyRecordedToday).toBe(true);
+  });
+
+  it('POST /queue/skip advances to next when first in queue is on vacation', async () => {
+    invalidateCalendarCache();
+    await PresentationLog.deleteMany({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+    await QueueDaySubstitution.deleteMany({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+    await Vacation.deleteMany({});
+
+    const userC = (
+      await User.create({
         teamId: new mongoose.Types.ObjectId(teamId),
-      });
-    expect(log?.status).toBe('skipped');
+        fullName: 'Carol',
+        isActive: true,
+      })
+    )._id.toString();
+
+    await QueueOrder.updateOne(
+      { teamId: new mongoose.Types.ObjectId(teamId) },
+      {
+        $set: {
+          members: [
+            { userId: new mongoose.Types.ObjectId(userA), active: true },
+            { userId: new mongoose.Types.ObjectId(userB), active: true },
+            { userId: new mongoose.Types.ObjectId(userC), active: true },
+          ],
+        },
+      },
+    );
+
+    const dayStart = moscowDateStringToUtc('2026-04-15');
+    await Vacation.create({
+      userId: new mongoose.Types.ObjectId(userA),
+      startDate: dayStart,
+      endDate: dayStart,
+    });
+
+    vi.restoreAllMocks();
+    vi.spyOn(dateHelpers, 'getMoscowDateString').mockReturnValue('2026-04-15');
+    invalidateCalendarCache();
+
+    const before = await request(app)
+      .get('/api/queue/current')
+      .query({ teamId });
+    expect(before.body.result.user._id).toBe(userB);
+
+    const res = await request(app)
+      .post('/api/queue/skip')
+      .query({ teamId })
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+
+    const cur = await request(app).get('/api/queue/current').query({ teamId });
+    expect(cur.body.result.user._id).toBe(userC);
+  });
+
+  it('POST /queue/skip increments skipDebt; present clears debt', async () => {
+    invalidateCalendarCache();
+    await PresentationLog.deleteMany({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+    await QueueOrder.updateOne(
+      { teamId: new mongoose.Types.ObjectId(teamId) },
+      {
+        $set: {
+          members: [
+            { userId: new mongoose.Types.ObjectId(userA), active: true, skipDebt: 0 },
+            { userId: new mongoose.Types.ObjectId(userB), active: true, skipDebt: 0 },
+          ],
+        },
+      },
+    );
+
+    vi.restoreAllMocks();
+    vi.spyOn(dateHelpers, 'getMoscowDateString').mockReturnValue('2026-04-14');
+    invalidateCalendarCache();
+
+    const skipRes = await request(app)
+      .post('/api/queue/skip')
+      .query({ teamId })
+      .set('Authorization', `Bearer ${token}`);
+    expect(skipRes.status).toBe(200);
+
+    const orderAfterSkip = await request(app)
+      .get('/api/queue/order')
+      .query({ teamId });
+    const memberA = orderAfterSkip.body.members.find(
+      (m: { userId: string }) => m.userId === userA,
+    );
+    expect(memberA?.skipDebt).toBe(1);
+
+    const cur = await request(app).get('/api/queue/current').query({ teamId });
+    expect(cur.body.result.user._id).toBe(userB);
+    expect(cur.body.result.canonicalSkipDebt).toBe(0);
+  });
+
+  it('POST /queue/present clears skipDebt for canonical presenter', async () => {
+    invalidateCalendarCache();
+    await PresentationLog.deleteMany({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+    await QueueOrder.updateOne(
+      { teamId: new mongoose.Types.ObjectId(teamId) },
+      {
+        $set: {
+          members: [
+            {
+              userId: new mongoose.Types.ObjectId(userA),
+              active: true,
+              skipDebt: 2,
+            },
+            { userId: new mongoose.Types.ObjectId(userB), active: true, skipDebt: 0 },
+          ],
+        },
+      },
+    );
+
+    vi.restoreAllMocks();
+    vi.spyOn(dateHelpers, 'getMoscowDateString').mockReturnValue('2026-04-13');
+    invalidateCalendarCache();
+
+    const presentRes = await request(app)
+      .post('/api/queue/present')
+      .query({ teamId })
+      .set('Authorization', `Bearer ${token}`);
+    expect(presentRes.status).toBe(200);
+
+    const orderAfterPresent = await request(app)
+      .get('/api/queue/order')
+      .query({ teamId });
+    const memberA = orderAfterPresent.body.members.find(
+      (m: { userId: string }) => m.userId === userA,
+    );
+    expect(memberA?.skipDebt).toBe(0);
+  });
+
+  it('POST /queue/skip keeps substitution but shows next when canonical changes', async () => {
+    invalidateCalendarCache();
+    await PresentationLog.deleteMany({
+      teamId: new mongoose.Types.ObjectId(teamId),
+    });
+
+    const userC = (
+      await User.create({
+        teamId: new mongoose.Types.ObjectId(teamId),
+        fullName: 'Carol',
+        isActive: true,
+      })
+    )._id.toString();
+
+    await QueueOrder.updateOne(
+      { teamId: new mongoose.Types.ObjectId(teamId) },
+      {
+        $set: {
+          members: [
+            { userId: new mongoose.Types.ObjectId(userA), active: true },
+            { userId: new mongoose.Types.ObjectId(userB), active: true },
+            { userId: new mongoose.Types.ObjectId(userC), active: true },
+          ],
+        },
+      },
+    );
+
+    const moscowDate = '2026-04-16';
+    await QueueDaySubstitution.create({
+      teamId: new mongoose.Types.ObjectId(teamId),
+      moscowDate,
+      canonicalUserId: new mongoose.Types.ObjectId(userA),
+      substituteUserId: new mongoose.Types.ObjectId(userC),
+    });
+
+    vi.restoreAllMocks();
+    vi.spyOn(dateHelpers, 'getMoscowDateString').mockReturnValue(moscowDate);
+    invalidateCalendarCache();
+
+    const before = await request(app)
+      .get('/api/queue/current')
+      .query({ teamId });
+    expect(before.body.result.user._id).toBe(userC);
+
+    const res = await request(app)
+      .post('/api/queue/skip')
+      .query({ teamId })
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+
+    const sub = await QueueDaySubstitution.findOne({
+      teamId: new mongoose.Types.ObjectId(teamId),
+      moscowDate,
+    });
+    expect(sub).not.toBeNull();
+
+    const cur = await request(app).get('/api/queue/current').query({ teamId });
+    expect(cur.body.result.user._id).toBe(userB);
+    expect(cur.body.result.substitution).toBeUndefined();
   });
 
   it('GET /queue/substitutions validates from/to date format', async () => {

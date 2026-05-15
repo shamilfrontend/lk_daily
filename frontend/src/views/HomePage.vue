@@ -17,11 +17,12 @@ const {
   onPresent,
   onSkip,
   pageError,
+  presenterSelectionHint,
   queue,
+  skipDebtByUserId,
   queueHasOnlyHiddenMembersToday,
   queueSize,
   refresh,
-  skipWithoutRotation,
   substitutionHint,
   todayBirthdayNames,
   upcomingBirthdays,
@@ -104,6 +105,18 @@ const {
             >
               {{ substitutionHint }}
             </p>
+            <p
+              v-else-if="presenterSelectionHint"
+              class="hero-card__reason hero-card__reason--muted"
+            >
+              {{ presenterSelectionHint }}
+            </p>
+            <p
+              v-if="auth.isAdmin"
+              class="hero-card__reason hero-card__reason--muted hero-card__admin-hint"
+            >
+              Пропустить не закрывает день. Выступил фиксирует созвон.
+            </p>
             <p v-if="actionError" class="error">{{ actionError }}</p>
             <p
               v-if="alreadyRecordedHint"
@@ -111,35 +124,22 @@ const {
             >
               За сегодня для этой команды отметка уже сделана.
             </p>
-            <div v-if="auth.isAdmin" class="actions-column">
-              <label
-                class="skip-rotate-label"
-                :class="{ 'skip-rotate-label--disabled': !canAdminAction }"
+            <div v-if="auth.isAdmin" class="actions-row">
+              <AppButton
+                type="button"
+                variant="primary"
+                :disabled="!canAdminAction"
+                @click="onPresent"
               >
-                <input
-                  v-model="skipWithoutRotation"
-                  type="checkbox"
-                  :disabled="!canAdminAction"
-                />
-                Пропуск без сдвига очереди
-              </label>
-              <div class="actions-row">
-                <AppButton
-                  type="button"
-                  variant="primary"
-                  :disabled="!canAdminAction"
-                  @click="onPresent"
-                >
-                  Выступил
-                </AppButton>
-                <AppButton
-                  type="button"
-                  :disabled="!canAdminAction"
-                  @click="onSkip"
-                >
-                  Пропустить
-                </AppButton>
-              </div>
+                Выступил
+              </AppButton>
+              <AppButton
+                type="button"
+                :disabled="!canAdminAction"
+                @click="onSkip"
+              >
+                Пропустить
+              </AppButton>
             </div>
             <AppState
               v-else
@@ -229,6 +229,12 @@ const {
                   {{ queueDateByUserId.get(m.userId) ?? '—' }}
                 </p>
               </div>
+              <span
+                v-if="(skipDebtByUserId.get(m.userId) ?? 0) > 0"
+                class="badge badge--skip-debt"
+              >
+                пропусков: {{ skipDebtByUserId.get(m.userId) }}
+              </span>
             </li>
           </ol>
         </div>
@@ -332,31 +338,21 @@ const {
   color: #d20f39;
 }
 
-.actions-column {
-  display: grid;
-  gap: var(--space-2);
-}
-
-.skip-rotate-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  color: var(--muted);
-  cursor: pointer;
-}
-
-.skip-rotate-label--disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
 .queue {
   display: grid;
   gap: 0.75rem;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.hero-card__admin-hint {
+  font-size: 0.85rem;
+}
+
+.badge--skip-debt {
+  flex-shrink: 0;
+  align-self: flex-start;
 }
 
 .queue__item {

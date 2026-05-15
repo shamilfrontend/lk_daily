@@ -59,8 +59,6 @@ export function useHomePage() {
 
   const actionError = ref<string | null>(null);
   const pageError = ref<string | null>(null);
-  const skipWithoutRotation = ref(false);
-
   const today = moscowTodayString();
   const todayUtcDate = new Date(`${today}T00:00:00.000Z`);
 
@@ -117,6 +115,29 @@ export function useHomePage() {
       return `Подмена вместо ${result.substitution.canonicalFullName}`;
     }
     return null;
+  });
+
+  const presenterSelectionHint = computed(() => {
+    const result = queue.current?.result;
+    if (result?.kind !== 'ok' || result.substitution) {
+      return null;
+    }
+    const debt = result.canonicalSkipDebt ?? 0;
+    if (debt > 0) {
+      return `Приоритет по пропускам: ${debt}`;
+    }
+    return 'По очереди';
+  });
+
+  const skipDebtByUserId = computed(() => {
+    const map = new Map<string, number>();
+    for (const m of queue.queueMembers) {
+      const debt = m.skipDebt ?? 0;
+      if (debt > 0) {
+        map.set(m.userId, debt);
+      }
+    }
+    return map;
   });
 
   const alreadyRecordedHint = computed(() => {
@@ -239,8 +260,8 @@ export function useHomePage() {
 
     actionError.value = null;
     try {
-      await queue.skip(teamId, { rotate: !skipWithoutRotation.value });
-      notifySuccess('Участник пропущен');
+      await queue.skip(teamId, UPCOMING_DAYS);
+      notifySuccess('Показан следующий докладчик');
     } catch (error: unknown) {
       actionError.value = getApiErrorMessage(
         error,
@@ -269,7 +290,8 @@ export function useHomePage() {
     queueHasOnlyHiddenMembersToday,
     queueSize,
     refresh,
-    skipWithoutRotation,
+    presenterSelectionHint,
+    skipDebtByUserId,
     substitutionHint,
     todayBirthdayNames,
     today,

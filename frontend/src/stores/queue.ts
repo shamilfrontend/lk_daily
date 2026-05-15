@@ -85,18 +85,11 @@ export const useQueueStore = defineStore('queue', () => {
     }
   }
 
-  async function skip(
-    teamId: string,
-    options?: { rotate?: boolean },
-  ): Promise<void> {
+  async function skip(teamId: string, upcomingDays = 7): Promise<void> {
     loading.value = true;
     try {
-      await api.post(
-        '/queue/skip',
-        { rotate: options?.rotate !== false },
-        { params: { teamId } },
-      );
-      await loadAll(teamId);
+      await api.post('/queue/skip', {}, { params: { teamId } });
+      await loadAll(teamId, upcomingDays);
     } catch (e) {
       error.value = getApiErrorMessage(e, 'Не удалось пропустить участника');
       notifyError(e, 'Не удалось пропустить участника');

@@ -56,6 +56,7 @@ export type CurrentPresenterResult =
       userId: string;
       user: { _id: string; fullName: string };
       rotationUserId?: string;
+      canonicalSkipDebt?: number;
       substitution?: { canonicalUserId: string; canonicalFullName: string };
     };
 
@@ -68,6 +69,7 @@ export interface QueueInsightsToday {
 export interface QueueMember {
   userId: string;
   active: boolean;
+  skipDebt?: number;
 }
 
 export type AdminRole = 'super' | 'team-lead';

@@ -265,6 +265,12 @@ async function sortAz(): Promise<void> {
                     class="badge"
                     >на больничном</span
                   >
+                  <span
+                    v-if="(element.skipDebt ?? 0) > 0"
+                    class="badge badge--skip-debt"
+                  >
+                    пропусков: {{ element.skipDebt }}
+                  </span>
                 </div>
               </div>
             </li>

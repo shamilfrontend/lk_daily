@@ -53,12 +53,33 @@ function toOid(id: string): Types.ObjectId {
 export type QueueMemberPlain = {
   userId: Types.ObjectId;
   active: boolean;
+  skipDebt: number;
 };
 
 type QueueOrderLean = {
   userIds?: Types.ObjectId[];
-  members?: { userId: Types.ObjectId; active?: boolean }[];
+  members?: {
+    userId: Types.ObjectId;
+    active?: boolean;
+    skipDebt?: number;
+  }[];
 };
+
+export function normalizeQueueMember(m: {
+  userId: Types.ObjectId;
+  active?: boolean;
+  skipDebt?: number;
+}): QueueMemberPlain {
+  const debt =
+    typeof m.skipDebt === 'number' && m.skipDebt > 0
+      ? Math.floor(m.skipDebt)
+      : 0;
+  return {
+    userId: m.userId,
+    active: m.active !== false,
+    skipDebt: debt,
+  };
+}
 
 /** Читает members из документа (в т.ч. ленивая форма со старым полем userIds). */
 export function membersFromLeanDoc(doc: QueueOrderLean | null): QueueMemberPlain[] {
@@ -66,13 +87,12 @@ export function membersFromLeanDoc(doc: QueueOrderLean | null): QueueMemberPlain
     return [];
   }
   if (doc.members && doc.members.length > 0) {
-    return doc.members.map((m) => ({
-      userId: m.userId,
-      active: m.active !== false,
-    }));
+    return doc.members.map((m) => normalizeQueueMember(m));
   }
   if (doc.userIds && doc.userIds.length > 0) {
-    return doc.userIds.map((userId) => ({ userId, active: true }));
+    return doc.userIds.map((userId) =>
+      normalizeQueueMember({ userId, active: true }),
+    );
   }
   return [];
 }
@@ -168,21 +188,201 @@ export async function findFirstPresenterId(
   return null;
 }
 
-function rotatePresenter(
-  queue: Types.ObjectId[],
-  presenterId: Types.ObjectId,
-): Types.ObjectId[] {
-  const idx = queue.findIndex((id) => id.equals(presenterId));
-  if (idx === -1) {
-    return [...queue];
+/** Первый доступный участник в порядке очереди (без учёта skipDebt). */
+export function resolveCanonicalByQueueOrder(
+  members: QueueMemberPlain[],
+  activeUserIdSet: Set<string>,
+  unavailable: Set<string>,
+): Types.ObjectId | null {
+  for (const m of members) {
+    if (!m.active) {
+      continue;
+    }
+    const id = m.userId.toString();
+    if (!activeUserIdSet.has(id) || unavailable.has(id)) {
+      continue;
+    }
+    return m.userId;
   }
-  const next = [...queue];
-  const [p] = next.splice(idx, 1);
-  next.push(p);
-  return next;
+  return null;
 }
 
-/** Сдвигает участника в конец полного списка members (сохраняет флаг active). */
+/** Канонический докладчик: сначала с макс. skipDebt, иначе первый доступный по очереди. */
+export function resolveCanonicalPresenterId(
+  members: QueueMemberPlain[],
+  activeUserIdSet: Set<string>,
+  unavailable: Set<string>,
+): Types.ObjectId | null {
+  const candidates: {
+    userId: Types.ObjectId;
+    index: number;
+    skipDebt: number;
+  }[] = [];
+
+  members.forEach((m, index) => {
+    if (!m.active) {
+      return;
+    }
+    const id = m.userId.toString();
+    if (!activeUserIdSet.has(id) || unavailable.has(id)) {
+      return;
+    }
+    candidates.push({
+      userId: m.userId,
+      index,
+      skipDebt: m.skipDebt,
+    });
+  });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const withDebt = candidates.filter((c) => c.skipDebt > 0);
+  if (withDebt.length > 0) {
+    withDebt.sort((a, b) => {
+      if (b.skipDebt !== a.skipDebt) {
+        return b.skipDebt - a.skipDebt;
+      }
+      return a.index - b.index;
+    });
+    return withDebt[0]!.userId;
+  }
+
+  return candidates[0]!.userId;
+}
+
+type SubstitutionLean = {
+  canonicalUserId?: Types.ObjectId;
+  substituteUserId: Types.ObjectId;
+};
+
+function substitutionAppliesToCanonical(
+  sub: SubstitutionLean,
+  canonicalId: Types.ObjectId,
+): boolean {
+  if (!sub.canonicalUserId) {
+    return true;
+  }
+  return sub.canonicalUserId.equals(canonicalId);
+}
+
+type UserLean = { _id: Types.ObjectId; fullName: string };
+
+function buildPresenterOkResult(
+  canonicalId: Types.ObjectId,
+  canonicalUser: UserLean,
+  members: QueueMemberPlain[],
+  subDoc: SubstitutionLean | null,
+  substituteUser: UserLean | null,
+): Extract<CurrentPresenterResult, { kind: 'ok' }> {
+  const canonicalSkipDebt =
+    members.find((m) => m.userId.equals(canonicalId))?.skipDebt ?? 0;
+
+  if (
+    subDoc &&
+    substituteUser &&
+    substitutionAppliesToCanonical(subDoc, canonicalId)
+  ) {
+    return {
+      kind: 'ok',
+      userId: substituteUser._id,
+      user: {
+        _id: substituteUser._id.toString(),
+        fullName: substituteUser.fullName,
+      },
+      rotationUserId: canonicalId,
+      canonicalSkipDebt,
+      substitution: {
+        canonicalUserId: canonicalUser._id.toString(),
+        canonicalFullName: canonicalUser.fullName,
+      },
+    };
+  }
+
+  return {
+    kind: 'ok',
+    userId: canonicalId,
+    user: {
+      _id: canonicalUser._id.toString(),
+      fullName: canonicalUser.fullName,
+    },
+    rotationUserId: canonicalId,
+    canonicalSkipDebt,
+  };
+}
+
+async function loadQueueContextForTeamDay(
+  teamId: string,
+  moscowDateStr: string,
+  session: ClientSession | null,
+): Promise<{
+  team: { _id: Types.ObjectId; region?: string };
+  membersOrdered: QueueMemberPlain[];
+  userById: Map<string, UserLean>;
+  unavailable: Set<string>;
+} | null> {
+  const team = await (session
+    ? Team.findById(teamId).session(session).lean()
+    : Team.findById(teamId).lean());
+  if (!team) {
+    throw new Error('TEAM_NOT_FOUND');
+  }
+
+  const tid = toOid(teamId);
+  await migrateLegacyQueueOrderIfNeeded(tid);
+
+  const queueOrder = await (session
+    ? QueueOrder.findOne({ teamId: tid }).session(session)
+    : QueueOrder.findOne({ teamId: tid }));
+  if (!queueOrder || queueOrder.members.length === 0) {
+    return null;
+  }
+
+  const membersOrdered = queueOrder.members.map((m) => normalizeQueueMember(m));
+
+  const users = await (session
+    ? User.find({
+        _id: { $in: membersOrdered.map((x) => x.userId) },
+        teamId: team._id,
+        isActive: true,
+      })
+        .session(session)
+        .lean()
+    : User.find({
+        _id: { $in: membersOrdered.map((x) => x.userId) },
+        teamId: team._id,
+        isActive: true,
+      }).lean());
+  const userById = new Map(users.map((u) => [u._id.toString(), u]));
+  const activeUserIdSet = new Set(userById.keys());
+  const orderedForRotation = membersOrdered
+    .filter((m) => m.active && activeUserIdSet.has(m.userId.toString()))
+    .map((m) => m.userId);
+
+  const vacationSet = await getVacationUserIdSetForMoscowDay(
+    orderedForRotation,
+    moscowDateStr,
+    session ?? undefined,
+  );
+  const maternitySet = await getMaternityUserIdSet(
+    orderedForRotation,
+    session ?? undefined,
+  );
+  const sickLeaveSet = await getSickLeaveUserIdSet(
+    orderedForRotation,
+    session ?? undefined,
+  );
+  const unavailable = new Set<string>([
+    ...vacationSet,
+    ...maternitySet,
+    ...sickLeaveSet,
+  ]);
+
+  return { team, membersOrdered, userById, unavailable };
+}
+
+/** Сдвигает участника в конец полного списка members (сохраняет active и skipDebt). */
 function rotateMemberRow(
   members: QueueMemberPlain[],
   presenterUserId: Types.ObjectId,
@@ -197,6 +397,32 @@ function rotateMemberRow(
   return next;
 }
 
+function clearSkipDebtForUser(
+  members: QueueMemberPlain[],
+  userId: Types.ObjectId,
+): QueueMemberPlain[] {
+  return members.map((m) =>
+    m.userId.equals(userId) ? { ...m, skipDebt: 0 } : m,
+  );
+}
+
+function incrementSkipDebtForUser(
+  members: QueueMemberPlain[],
+  userId: Types.ObjectId,
+): QueueMemberPlain[] {
+  return members.map((m) =>
+    m.userId.equals(userId) ? { ...m, skipDebt: m.skipDebt + 1 } : m,
+  );
+}
+
+function toIQueueMembers(members: QueueMemberPlain[]): IQueueMember[] {
+  return members.map((m) => ({
+    userId: m.userId,
+    active: m.active,
+    skipDebt: m.skipDebt,
+  }));
+}
+
 export type CurrentPresenterResult =
   | { kind: 'non_working'; reason: string }
   | { kind: 'no_queue' }
@@ -206,8 +432,10 @@ export type CurrentPresenterResult =
       /** Кто отображается и попадает в лог выступления */
       userId: Types.ObjectId;
       user: { _id: string; fullName: string };
-      /** Кого сдвигаем в конце очереди при «Выступил» / «Пропустить» */
+      /** Кого сдвигаем в конец очереди при «Выступил» */
       rotationUserId: Types.ObjectId;
+      /** Долг пропусков канонического докладчика */
+      canonicalSkipDebt: number;
       /** Если задана подмена на день: канонический следующий по очереди */
       substitution?: { canonicalUserId: string; canonicalFullName: string };
     };
@@ -228,53 +456,22 @@ export async function getCurrentPresenter(
     return { kind: 'non_working', reason };
   }
 
-  const tid = toOid(teamId);
-  await migrateLegacyQueueOrderIfNeeded(tid);
-
-  const queueOrder = await QueueOrder.findOne({ teamId: tid });
-  const membersOrdered = queueOrder
-    ? queueOrder.members.map((m) => ({
-        userId: m.userId,
-        active: m.active !== false,
-      }))
-    : [];
-  if (!queueOrder || membersOrdered.length === 0) {
+  const ctx = await loadQueueContextForTeamDay(teamId, moscowDateStr, null);
+  if (!ctx) {
     return { kind: 'no_queue' };
   }
 
-  const memberIds = membersOrdered.map((m) => m.userId);
-  const users = await User.find({
-    _id: { $in: memberIds },
-    teamId: team._id,
-    isActive: true,
-  }).lean();
-
-  const userById = new Map(users.map((u) => [u._id.toString(), u]));
-  const orderedForRotation = membersOrdered
-    .filter((m) => m.active && userById.has(m.userId.toString()))
-    .map((m) => m.userId);
-
-  const vacationSet = await getVacationUserIdSetForMoscowDay(
-    orderedForRotation,
-    moscowDateStr,
+  const activeUserIdSet = new Set(ctx.userById.keys());
+  const canonicalId = resolveCanonicalByQueueOrder(
+    ctx.membersOrdered,
+    activeUserIdSet,
+    ctx.unavailable,
   );
-  const maternitySet = await getMaternityUserIdSet(orderedForRotation);
-  const sickLeaveSet = await getSickLeaveUserIdSet(orderedForRotation);
-  const unavailable = new Set<string>([
-    ...vacationSet,
-    ...maternitySet,
-    ...sickLeaveSet,
-  ]);
-  const presenterId = await findFirstPresenterId(
-    orderedForRotation,
-    unavailable,
-  );
-
-  if (!presenterId) {
+  if (!canonicalId) {
     return { kind: 'no_available' };
   }
 
-  const canonicalUser = userById.get(presenterId.toString());
+  const canonicalUser = ctx.userById.get(canonicalId.toString());
   if (!canonicalUser) {
     return { kind: 'no_available' };
   }
@@ -284,35 +481,39 @@ export async function getCurrentPresenter(
     moscowDate: moscowDateStr,
   }).lean();
 
+  let substituteUser: UserLean | null = null;
   if (subDoc) {
-    const subUser = await User.findOne({
+    const sub = await User.findOne({
       _id: subDoc.substituteUserId,
       teamId: team._id,
       isActive: true,
     }).lean();
-    if (subUser) {
-      return {
-        kind: 'ok',
-        userId: subUser._id,
-        user: { _id: subUser._id.toString(), fullName: subUser.fullName },
-        rotationUserId: presenterId,
-        substitution: {
-          canonicalUserId: canonicalUser._id.toString(),
-          canonicalFullName: canonicalUser.fullName,
-        },
-      };
-    }
+    substituteUser = sub;
   }
 
-  return {
-    kind: 'ok',
-    userId: presenterId,
-    user: {
-      _id: canonicalUser._id.toString(),
-      fullName: canonicalUser.fullName,
-    },
-    rotationUserId: presenterId,
-  };
+  return buildPresenterOkResult(
+    canonicalId,
+    canonicalUser,
+    ctx.membersOrdered,
+    subDoc,
+    substituteUser,
+  );
+}
+
+/** Канонический докладчик на московскую дату (для подмен и прогноза). */
+export async function resolveCanonicalForTeamMoscowDate(
+  teamId: string,
+  moscowDateStr: string,
+): Promise<Types.ObjectId | null> {
+  const ctx = await loadQueueContextForTeamDay(teamId, moscowDateStr, null);
+  if (!ctx) {
+    return null;
+  }
+  return resolveCanonicalByQueueOrder(
+    ctx.membersOrdered,
+    new Set(ctx.userById.keys()),
+    ctx.unavailable,
+  );
 }
 
 export async function getQueueState(teamId: string) {
@@ -327,6 +528,7 @@ export async function getQueueState(teamId: string) {
     members: rows.map((m) => ({
       userId: m.userId.toString(),
       active: m.active,
+      skipDebt: m.skipDebt,
     })),
   };
 }
@@ -440,16 +642,38 @@ export async function swapSubstitutionDays(
     new: true,
     setDefaultsOnInsert: true,
   } as const;
+  const canonicalA = await resolveCanonicalForTeamMoscowDate(
+    teamId,
+    moscowDateA,
+  );
+  const canonicalB = await resolveCanonicalForTeamMoscowDate(
+    teamId,
+    moscowDateB,
+  );
+  if (!canonicalA || !canonicalB) {
+    throw new Error('SWAP_NO_PRESENTER');
+  }
+
   const writePair = async (session: ClientSession | null) => {
     const sessionOpt = session ? { ...baseOpts, session } : { ...baseOpts };
     await QueueDaySubstitution.findOneAndUpdate(
       { teamId: tid, moscowDate: moscowDateA },
-      { $set: { substituteUserId: new mongoose.Types.ObjectId(presB._id) } },
+      {
+        $set: {
+          canonicalUserId: canonicalA,
+          substituteUserId: new mongoose.Types.ObjectId(presB._id),
+        },
+      },
       sessionOpt,
     );
     await QueueDaySubstitution.findOneAndUpdate(
       { teamId: tid, moscowDate: moscowDateB },
-      { $set: { substituteUserId: new mongoose.Types.ObjectId(presA._id) } },
+      {
+        $set: {
+          canonicalUserId: canonicalB,
+          substituteUserId: new mongoose.Types.ObjectId(presA._id),
+        },
+      },
       sessionOpt,
     );
   };
@@ -467,110 +691,65 @@ export async function swapSubstitutionDays(
 
 async function recordPresentationCore(
   teamId: string,
-  status: 'presented' | 'skipped',
   when: Date,
-  rotateQueue: boolean,
   session: ClientSession | null,
 ): Promise<string[]> {
-  const team = await (session
-    ? Team.findById(teamId).session(session).lean()
-    : Team.findById(teamId).lean());
-  if (!team) {
-    throw new Error('TEAM_NOT_FOUND');
-  }
   const moscowDateStr = getMoscowDateString(when);
-  const working = await isWorkingDay(moscowDateStr, team.region);
+  const ctx = await loadQueueContextForTeamDay(teamId, moscowDateStr, session);
+  if (!ctx) {
+    throw new Error('NO_QUEUE');
+  }
+
+  const working = await isWorkingDay(moscowDateStr, ctx.team.region);
   if (!working) {
     throw new Error('NON_WORKING_DAY');
   }
 
   await assertNoLogForTeamDay(teamId, moscowDateStr, session ?? undefined);
 
-  const tid = toOid(teamId);
-
-  const queueOrder = await (session
-    ? QueueOrder.findOne({ teamId: tid }).session(session)
-    : QueueOrder.findOne({ teamId: tid }));
-  if (!queueOrder || queueOrder.members.length === 0) {
-    throw new Error('NO_QUEUE');
-  }
-
-  const membersOrdered: QueueMemberPlain[] = queueOrder.members.map((m) => ({
-    userId: m.userId,
-    active: m.active !== false,
-  }));
-
-  const users = await (session
-    ? User.find({
-        _id: { $in: membersOrdered.map((x) => x.userId) },
-        teamId: team._id,
-        isActive: true,
-      })
-        .session(session)
-        .lean()
-    : User.find({
-        _id: { $in: membersOrdered.map((x) => x.userId) },
-        teamId: team._id,
-        isActive: true,
-      }).lean());
-  const userById = new Map(users.map((u) => [u._id.toString(), u]));
-  const orderedForRotation = membersOrdered
-    .filter((m) => m.active && userById.has(m.userId.toString()))
-    .map((m) => m.userId);
-  if (orderedForRotation.length === 0) {
-    throw new Error('NO_PRESENTER');
-  }
-
-  const vacationSet = await getVacationUserIdSetForMoscowDay(
-    orderedForRotation,
-    moscowDateStr,
-    session ?? undefined,
-  );
-  const maternitySet = await getMaternityUserIdSet(
-    orderedForRotation,
-    session ?? undefined,
-  );
-  const sickLeaveSet = await getSickLeaveUserIdSet(
-    orderedForRotation,
-    session ?? undefined,
-  );
-  const unavailable = new Set<string>([
-    ...vacationSet,
-    ...maternitySet,
-    ...sickLeaveSet,
-  ]);
-  const canonicalPresenterId = await findFirstPresenterId(
-    orderedForRotation,
-    unavailable,
+  const activeUserIdSet = new Set(ctx.userById.keys());
+  const canonicalPresenterId = resolveCanonicalByQueueOrder(
+    ctx.membersOrdered,
+    activeUserIdSet,
+    ctx.unavailable,
   );
   if (!canonicalPresenterId) {
     throw new Error('NO_PRESENTER');
   }
 
-  let presentedUserId: Types.ObjectId = canonicalPresenterId;
+  const canonicalUser = ctx.userById.get(canonicalPresenterId.toString());
+  if (!canonicalUser) {
+    throw new Error('NO_PRESENTER');
+  }
+
   const substitutionDoc = await (session
     ? QueueDaySubstitution.findOne({
-        teamId: team._id,
+        teamId: ctx.team._id,
         moscowDate: moscowDateStr,
       })
         .session(session)
         .lean()
     : QueueDaySubstitution.findOne({
-        teamId: team._id,
+        teamId: ctx.team._id,
         moscowDate: moscowDateStr,
       }).lean());
-  if (substitutionDoc) {
+
+  let presentedUserId: Types.ObjectId = canonicalPresenterId;
+  if (
+    substitutionDoc &&
+    substitutionAppliesToCanonical(substitutionDoc, canonicalPresenterId)
+  ) {
     const substitutionUser = await (session
       ? User.findOne({
           _id: substitutionDoc.substituteUserId,
-          teamId: team._id,
+          teamId: ctx.team._id,
           isActive: true,
         })
           .session(session)
           .lean()
       : User.findOne({
           _id: substitutionDoc.substituteUserId,
-          teamId: team._id,
+          teamId: ctx.team._id,
           isActive: true,
         }).lean());
     if (substitutionUser) {
@@ -578,23 +757,27 @@ async function recordPresentationCore(
     }
   }
 
-  const newMembers = rotateQueue
-    ? rotateMemberRow(membersOrdered, canonicalPresenterId)
-    : [...membersOrdered];
-  if (rotateQueue) {
-    queueOrder.members = newMembers as IQueueMember[];
-    await queueOrder.save(session ? { session } : {});
+  const tid = toOid(teamId);
+  const queueOrder = await (session
+    ? QueueOrder.findOne({ teamId: tid }).session(session)
+    : QueueOrder.findOne({ teamId: tid }));
+  if (!queueOrder) {
+    throw new Error('NO_QUEUE');
   }
+
+  let newMembers = rotateMemberRow(ctx.membersOrdered, canonicalPresenterId);
+  newMembers = clearSkipDebtForUser(newMembers, canonicalPresenterId);
+  queueOrder.members = toIQueueMembers(newMembers);
+  await queueOrder.save(session ? { session } : {});
 
   const createOpts = session ? { session } : {};
   await PresentationLog.create(
     [
       {
-        teamId: toOid(teamId),
+        teamId: tid,
         date: moscowDateStringToUtc(moscowDateStr),
         userId: presentedUserId,
-        status,
-        rotationSkipped: !rotateQueue,
+        status: 'presented',
       },
     ],
     createOpts,
@@ -605,33 +788,85 @@ async function recordPresentationCore(
 
 export async function recordPresentation(
   teamId: string,
-  status: 'presented' | 'skipped',
   when: Date = new Date(),
-  options?: { rotateQueue?: boolean },
 ): Promise<{ newUserIds: string[] }> {
-  const rotateQueue = options?.rotateQueue !== false;
   await migrateLegacyQueueOrderIfNeeded(toOid(teamId));
   if (!(await isMongoTransactionsSupported())) {
-    const newUserIds = await recordPresentationCore(
-      teamId,
-      status,
-      when,
-      rotateQueue,
-      null,
-    );
+    const newUserIds = await recordPresentationCore(teamId, when, null);
     return { newUserIds };
   }
   const session = await mongoose.startSession();
   try {
     let newUserIds: string[] = [];
     await session.withTransaction(async () => {
-      newUserIds = await recordPresentationCore(
-        teamId,
-        status,
-        when,
-        rotateQueue,
-        session,
-      );
+      newUserIds = await recordPresentationCore(teamId, when, session);
+    });
+    return { newUserIds };
+  } finally {
+    await session.endSession();
+  }
+}
+
+async function skipCurrentPresenterCore(
+  teamId: string,
+  when: Date,
+  session: ClientSession | null,
+): Promise<string[]> {
+  const moscowDateStr = getMoscowDateString(when);
+  const ctx = await loadQueueContextForTeamDay(teamId, moscowDateStr, session);
+  if (!ctx) {
+    throw new Error('NO_QUEUE');
+  }
+
+  const working = await isWorkingDay(moscowDateStr, ctx.team.region);
+  if (!working) {
+    throw new Error('NON_WORKING_DAY');
+  }
+
+  const activeUserIdSet = new Set(ctx.userById.keys());
+  const canonicalPresenterId = resolveCanonicalByQueueOrder(
+    ctx.membersOrdered,
+    activeUserIdSet,
+    ctx.unavailable,
+  );
+  if (!canonicalPresenterId) {
+    throw new Error('NO_PRESENTER');
+  }
+
+  const tid = toOid(teamId);
+  const queueOrder = await (session
+    ? QueueOrder.findOne({ teamId: tid }).session(session)
+    : QueueOrder.findOne({ teamId: tid }));
+  if (!queueOrder) {
+    throw new Error('NO_QUEUE');
+  }
+
+  const rotated = rotateMemberRow(ctx.membersOrdered, canonicalPresenterId);
+  const newMembers = incrementSkipDebtForUser(
+    rotated,
+    canonicalPresenterId,
+  );
+  queueOrder.members = toIQueueMembers(newMembers);
+  await queueOrder.save(session ? { session } : {});
+
+  return newMembers.map((m) => m.userId.toString());
+}
+
+/** Пропуск без записи в журнал: +skipDebt, следующий по правилам долга и очереди. */
+export async function skipCurrentPresenter(
+  teamId: string,
+  when: Date = new Date(),
+): Promise<{ newUserIds: string[] }> {
+  await migrateLegacyQueueOrderIfNeeded(toOid(teamId));
+  if (!(await isMongoTransactionsSupported())) {
+    const newUserIds = await skipCurrentPresenterCore(teamId, when, null);
+    return { newUserIds };
+  }
+  const session = await mongoose.startSession();
+  try {
+    let newUserIds: string[] = [];
+    await session.withTransaction(async () => {
+      newUserIds = await skipCurrentPresenterCore(teamId, when, session);
     });
     return { newUserIds };
   } finally {
@@ -664,12 +899,7 @@ export async function getUpcomingPresenters(
     return [];
   }
 
-  const membersInit = membersFromLeanDoc(queueOrder as QueueOrderLean);
-  const memberActiveById = new Map(
-    membersInit.map((m) => [m.userId.toString(), m.active]),
-  );
-
-  let sim = membersInit.map((m) => m.userId);
+  let simMembers = membersFromLeanDoc(queueOrder as QueueOrderLean);
   const rows: UpcomingRow[] = [];
 
   const teamUsers = await User.find({
@@ -711,23 +941,22 @@ export async function getUpcomingPresenters(
       continue;
     }
 
-    const activeSim = sim.filter(
-      (id) =>
-        userById.has(id.toString()) &&
-        memberActiveById.get(id.toString()) !== false,
-    );
+    const activeUserIdSet = new Set(userById.keys());
     const vacationSet = await getVacationUserIdSetForMoscowDay(
-      activeSim,
+      simMembers.filter((m) => m.active).map((m) => m.userId),
       cursor,
     );
     const unavailable = new Set<string>(vacationSet);
-    for (const oid of activeSim) {
-      const id = oid.toString();
+    for (const id of activeUserIdSet) {
       if (maternityTeamIds.has(id) || sickLeaveTeamIds.has(id)) {
         unavailable.add(id);
       }
     }
-    const presenterId = await findFirstPresenterId(activeSim, unavailable);
+    const presenterId = resolveCanonicalPresenterId(
+      simMembers,
+      activeUserIdSet,
+      unavailable,
+    );
 
     if (!presenterId) {
       rows.push({ moscowDate: cursor, presenter: null });
@@ -738,7 +967,11 @@ export async function getUpcomingPresenters(
         ? { _id: u._id.toString(), fullName: u.fullName }
         : null;
       let substitution: { canonicalFullName: string } | undefined;
-      if (subRow && u) {
+      if (
+        subRow &&
+        u &&
+        substitutionAppliesToCanonical(subRow, presenterId)
+      ) {
         const subU = userById.get(subRow.substituteUserId.toString());
         if (subU) {
           presenterOut = { _id: subU._id.toString(), fullName: subU.fullName };
@@ -750,7 +983,10 @@ export async function getUpcomingPresenters(
         presenter: presenterOut,
         ...(substitution ? { substitution } : {}),
       });
-      sim = rotatePresenter(activeSim, presenterId);
+      simMembers = clearSkipDebtForUser(
+        rotateMemberRow(simMembers, presenterId),
+        presenterId,
+      );
     }
 
     cursor = getMoscowDateString(addDays(moscowDateStringToUtc(cursor), 1));
@@ -777,13 +1013,10 @@ export async function appendUserToQueueEnd(
   if (!q) {
     return;
   }
-  const list = q.members.map((m) => ({
-    userId: m.userId,
-    active: m.active !== false,
-  }));
+  const list = q.members.map((m) => normalizeQueueMember(m));
   const without = list.filter((m) => !m.userId.equals(userId));
-  without.push({ userId, active: true });
-  q.members = without as IQueueMember[];
+  without.push(normalizeQueueMember({ userId, active: true }));
+  q.members = toIQueueMembers(without);
   await q.save();
 }
 
@@ -806,10 +1039,7 @@ export async function replaceQueueOrder(
     { teamId },
     {
       $set: {
-        members: members.map((m) => ({
-          userId: m.userId,
-          active: m.active,
-        })),
+        members: toIQueueMembers(members),
       },
       $unset: { userIds: 1 },
     },
@@ -827,10 +1057,9 @@ export async function sortQueueAlphabetically(
   const users = await User.find({ teamId, isActive: true })
     .sort({ fullName: 1 })
     .lean();
-  const members: QueueMemberPlain[] = users.map((u) => ({
-    userId: u._id,
-    active: true,
-  }));
+  const members: QueueMemberPlain[] = users.map((u) =>
+    normalizeQueueMember({ userId: u._id, active: true }),
+  );
   await replaceQueueOrder(teamId, members);
   return members.map((m) => m.userId.toString());
 }

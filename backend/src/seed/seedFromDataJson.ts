@@ -9,7 +9,10 @@ import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
 import { Vacation } from '../models/Vacation.js';
 import { QueueOrder } from '../models/QueueOrder.js';
-import { replaceQueueOrder } from '../services/queueService.js';
+import {
+  normalizeQueueMember,
+  replaceQueueOrder,
+} from '../services/queueService.js';
 import { parseMoscowDayInput, utcDateToMoscowDateString } from '../utils/dateHelpers.js';
 import { logger } from '../utils/logger.js';
 
@@ -164,7 +167,7 @@ async function seedFromData(data: SeedData): Promise<void> {
 
     await replaceQueueOrder(
       team._id,
-      userIds.map((userId) => ({ userId, active: true })),
+      userIds.map((userId) => normalizeQueueMember({ userId, active: true })),
     );
     logger.info(`Seeded team "${team.name}" with ${userIds.length} members`);
   }
