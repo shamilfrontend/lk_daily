@@ -15,6 +15,8 @@ export const useVacationsStore = defineStore('vacations', () => {
   async function fetchVacations(params: {
     userId?: string;
     teamId?: string;
+    fromDate?: string;
+    toDate?: string;
   }): Promise<void> {
     loading.value = true;
     error.value = null;

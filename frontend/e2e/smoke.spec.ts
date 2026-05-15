@@ -178,6 +178,76 @@ test.describe('оболочка приложения', () => {
     await expect(pageTitleInMain(page)).toHaveText('Сегодня');
   });
 
+  test('график отпусков открывается', async ({ page }) => {
+    await page.route('**/api/teams**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ _id: MOCK_TEAM_ID, name: 'Команда A', region: 'RU-MOW' }]),
+      });
+    });
+    await page.route('**/api/users**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: MOCK_USER_A,
+            teamId: MOCK_TEAM_ID,
+            fullName: 'Alice',
+            isActive: true,
+            jobRole: 'frontend',
+          },
+          {
+            _id: MOCK_USER_B,
+            teamId: MOCK_TEAM_ID,
+            fullName: 'Bob',
+            isActive: true,
+            jobRole: 'backend',
+          },
+        ]),
+      });
+    });
+    await page.route('**/api/vacations**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: 'vac1',
+            userId: MOCK_USER_A,
+            startDate: '2026-06-01',
+            endDate: '2026-06-10',
+          },
+        ]),
+      });
+    });
+    await page.route('**/api/non-working-days**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          year: 2025,
+          items: [{ id: 'n1', date: '2025-01-01', type: 'federal' }],
+        }),
+      });
+    });
+    await page.route('**/api/holiday-transfers**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ year: 2025, items: [] }),
+      });
+    });
+    await page.addInitScript((teamId) => {
+      localStorage.setItem('lk_daily_team', teamId);
+    }, MOCK_TEAM_ID);
+    await page.goto('/vacation-schedule?year=2025', { waitUntil: 'domcontentloaded' });
+    await expect(pageTitleInMain(page)).toHaveText('График отпусков');
+    await expect(page.locator('.year-switcher__value')).toHaveText('2025');
+    await expect(page.locator('.schedule-grid')).toBeVisible();
+  });
+
   test('страница истории открывается', async ({ page }) => {
     await page.route('**/api/teams**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
@@ -209,6 +279,61 @@ test.describe('оболочка приложения', () => {
     await page.goto('/history', { waitUntil: 'domcontentloaded' });
     await page.getByRole('button', { name: 'Загрузить ещё' }).click();
     await expect(page.locator('tbody tr')).toHaveCount(2);
+  });
+
+  test('админ видит кнопку «Добавить отпуск» на графике', async ({ page }) => {
+    await page.addInitScript((teamId) => {
+      localStorage.setItem('lk_daily_token', 'e2e-test-token');
+      localStorage.setItem('lk_daily_team', teamId);
+    }, MOCK_TEAM_ID);
+    await page.route('**/api/auth/verify', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, login: 'adm', role: 'super', teamIds: [] }),
+      });
+    });
+    await page.route('**/api/teams**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{ _id: MOCK_TEAM_ID, name: 'Команда A', region: 'RU-MOW' }]),
+      });
+    });
+    await page.route('**/api/users**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+          {
+            _id: MOCK_USER_A,
+            teamId: MOCK_TEAM_ID,
+            fullName: 'Alice',
+            isActive: true,
+            jobRole: 'frontend',
+          },
+        ]),
+      });
+    });
+    await page.route('**/api/vacations**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify([]) });
+    });
+    await page.route('**/api/non-working-days**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ year: 2026, items: [] }),
+      });
+    });
+    await page.route('**/api/holiday-transfers**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ year: 2026, items: [] }),
+      });
+    });
+    await page.goto('/vacation-schedule', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('button', { name: 'Добавить отпуск' })).toBeVisible();
   });
 
   test('админ может отметить выступление на главной (мок API)', async ({ page }) => {

@@ -15,6 +15,11 @@ import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyInfo } from '@/composables/useAppNotifications';
+import {
+  JOB_ROLE_OPTIONS,
+  jobRoleLabel,
+  type UserJobRole,
+} from '@/constants/userJobRoles';
 import { formatCalendarDateRu, moscowTodayString } from '@/utils/dates';
 
 import type { User } from '@/types/api';
@@ -37,6 +42,7 @@ const modalTeamId = ref('');
 const modalIsActive = ref(true);
 const modalOnMaternityLeave = ref(false);
 const modalOnSickLeave = ref(false);
+const modalJobRole = ref<UserJobRole | ''>('');
 const modalBirthday = ref('');
 const modalError = ref<string | null>(null);
 const today = moscowTodayString();
@@ -77,6 +83,7 @@ watch(participantModalOpen, (open) => {
     modalIsActive.value = true;
     modalOnMaternityLeave.value = false;
     modalOnSickLeave.value = false;
+    modalJobRole.value = '';
     modalBirthday.value = '';
   }
 });
@@ -99,6 +106,7 @@ function openEditModal(u: User): void {
   modalIsActive.value = u.isActive;
   modalOnMaternityLeave.value = u.onMaternityLeave === true;
   modalOnSickLeave.value = u.onSickLeave === true;
+  modalJobRole.value = u.jobRole ?? '';
   modalBirthday.value = normalizeBirthdayInput(u.birthday);
   participantModalOpen.value = true;
 }
@@ -129,6 +137,7 @@ async function saveModal(): Promise<void> {
         isActive: modalIsActive.value,
         onMaternityLeave: modalOnMaternityLeave.value,
         onSickLeave: modalOnSickLeave.value,
+        jobRole: modalJobRole.value || null,
         birthday: modalBirthday.value || null,
       });
     } else {
@@ -138,6 +147,7 @@ async function saveModal(): Promise<void> {
         isActive: modalIsActive.value,
         onMaternityLeave: modalOnMaternityLeave.value,
         onSickLeave: modalOnSickLeave.value,
+        jobRole: modalJobRole.value || null,
         birthday: modalBirthday.value || null,
       });
     }
@@ -172,13 +182,13 @@ async function remove(): Promise<void> {
   }
 }
 
-function goVacations(userId: string): void {
-  void router.push({ name: 'admin-vacations', query: { userId } });
+function goVacations(): void {
+  void router.push({ name: 'vacation-schedule' });
 }
 
 function onUserRowMenuSelect(id: string, u: User): void {
   if (id === 'edit') openEditModal(u);
-  else if (id === 'vacations') goVacations(u._id);
+  else if (id === 'vacations') goVacations();
   else if (id === 'deactivate') openRemoveModal(u);
 }
 
@@ -248,6 +258,7 @@ function isBirthdayToday(value?: string): boolean {
           <thead>
             <tr>
               <th>ФИО</th>
+              <th>Роль</th>
               <th>Активен</th>
               <th>В декрете</th>
               <th>На больничном</th>
@@ -258,6 +269,7 @@ function isBirthdayToday(value?: string): boolean {
           <tbody>
             <tr v-for="u in users.users" :key="u._id">
               <td>{{ u.fullName }}</td>
+              <td>{{ jobRoleLabel(u.jobRole) }}</td>
               <td>{{ u.isActive ? 'Да' : 'Нет' }}</td>
               <td>{{ u.onMaternityLeave ? 'Да' : 'Нет' }}</td>
               <td>{{ u.onSickLeave ? 'Да' : 'Нет' }}</td>
@@ -337,6 +349,20 @@ function isBirthdayToday(value?: string): boolean {
           >
             На больничном
           </AppSwitch>
+        </div>
+
+        <div class="field">
+          <label class="field__label" for="uc-job-role">Роль</label>
+          <select id="uc-job-role" v-model="modalJobRole" class="select">
+            <option value="">Не указана</option>
+            <option
+              v-for="opt in JOB_ROLE_OPTIONS"
+              :key="opt.value"
+              :value="opt.value"
+            >
+              {{ opt.label }}
+            </option>
+          </select>
         </div>
 
         <div class="field">

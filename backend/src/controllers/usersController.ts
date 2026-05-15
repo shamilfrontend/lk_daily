@@ -2,6 +2,10 @@ import type { Request, Response } from 'express';
 import Joi from 'joi';
 import mongoose from 'mongoose';
 
+import {
+  USER_JOB_ROLES,
+  type UserJobRole,
+} from '../constants/userJobRoles.js';
 import { HttpError } from '../middlewares/errorHandler.js';
 import { Team } from '../models/Team.js';
 import { User } from '../models/User.js';
@@ -11,12 +15,17 @@ import {
 } from '../services/queueService.js';
 import { allowedTeamIdSet, assertTeamAccess } from '../utils/authz.js';
 
+const jobRoleSchema = Joi.string()
+  .valid(...USER_JOB_ROLES)
+  .allow(null, '');
+
 const createBody = Joi.object({
   fullName: Joi.string().trim().required(),
   teamId: Joi.string().required(),
   isActive: Joi.boolean().default(true),
   onMaternityLeave: Joi.boolean().default(false),
   onSickLeave: Joi.boolean().default(false),
+  jobRole: jobRoleSchema,
   birthday: Joi.string().isoDate().allow(null, ''),
 });
 
@@ -26,6 +35,7 @@ const updateBody = Joi.object({
   isActive: Joi.boolean(),
   onMaternityLeave: Joi.boolean(),
   onSickLeave: Joi.boolean(),
+  jobRole: jobRoleSchema,
   birthday: Joi.string().isoDate().allow(null, ''),
 }).min(1);
 
@@ -41,6 +51,15 @@ function parseBirthdayInput(
     throw new HttpError(400, 'Invalid birthday');
   }
   return parsed;
+}
+
+function parseJobRoleInput(
+  value: string | null | undefined,
+): UserJobRole | undefined {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  return value as UserJobRole;
 }
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
@@ -94,6 +113,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     isActive: value.isActive !== false,
     onMaternityLeave: value.onMaternityLeave === true,
     onSickLeave: value.onSickLeave === true,
+    jobRole: parseJobRoleInput(value.jobRole as string | null | undefined),
     birthday: parseBirthdayInput(value.birthday as string | null | undefined),
   });
   if (user.isActive) {
@@ -137,6 +157,9 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   if (value.birthday !== undefined) {
     user.birthday =
       parseBirthdayInput(value.birthday as string | null) ?? undefined;
+  }
+  if (value.jobRole !== undefined) {
+    user.jobRole = parseJobRoleInput(value.jobRole as string | null);
   }
 
   await user.save();

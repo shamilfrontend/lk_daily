@@ -5,19 +5,30 @@ import AppButton from '@/components/UI/AppButton.vue';
 import AppDatePicker from '@/components/UI/AppDatePicker.vue';
 import AppModal from '@/components/UI/AppModal.vue';
 
+import { assessLaborVacationCompliance } from '@/utils/vacationLaborCompliance';
+
+import type { User, Vacation } from '@/types/api';
+
 interface VacationPeriodModalProps {
   modelValue: boolean;
   mode: 'create' | 'edit';
+  year?: number;
+  vacations?: Vacation[];
+  users?: User[];
+  userId?: string;
   vacationId?: string;
   participantLabel?: string;
   initialStart?: string;
   initialEnd?: string;
   saving?: boolean;
-  /** Ошибка с сервера при сохранении (из родителя) */
   saveError?: string;
 }
 
 const props = withDefaults(defineProps<VacationPeriodModalProps>(), {
+  year: () => new Date().getFullYear(),
+  vacations: () => [],
+  users: () => [],
+  userId: '',
   vacationId: undefined,
   participantLabel: '',
   initialStart: '',
@@ -28,7 +39,15 @@ const props = withDefaults(defineProps<VacationPeriodModalProps>(), {
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean];
-  save: [payload: { startDate: string; endDate: string; vacationId?: string }];
+  'update:userId': [value: string];
+  save: [
+    payload: {
+      userId: string;
+      startDate: string;
+      endDate: string;
+      vacationId?: string;
+    },
+  ];
 }>();
 
 const startDate = ref('');
@@ -40,6 +59,35 @@ const modalTitle = computed(() =>
 );
 
 const endMin = computed(() => startDate.value.trim() || undefined);
+
+const selectedUserId = computed({
+  get: () => props.userId,
+  set: (value: string) => emit('update:userId', value),
+});
+
+const effectiveUserId = computed(() =>
+  props.mode === 'edit' ? props.userId : selectedUserId.value,
+);
+
+const laborWarnings = computed(() => {
+  const userId = effectiveUserId.value;
+  const start = startDate.value.trim();
+  const end = endDate.value.trim();
+  if (!userId || !start || !end || start > end) {
+    return [];
+  }
+  const result = assessLaborVacationCompliance(
+    userId,
+    props.vacations,
+    props.year,
+    {
+      vacationId: props.vacationId,
+      startDate: start,
+      endDate: end,
+    },
+  );
+  return result.issues;
+});
 
 function syncFromProps(): void {
   localError.value = null;
@@ -67,6 +115,10 @@ function close(): void {
 
 function validate(): boolean {
   localError.value = null;
+  if (props.mode === 'create' && !selectedUserId.value) {
+    localError.value = 'Выберите участника';
+    return false;
+  }
   const start = startDate.value.trim();
   const end = endDate.value.trim();
   if (!start || !end) {
@@ -82,7 +134,21 @@ function validate(): boolean {
 
 function submit(): void {
   if (!validate()) return;
-  const payload: { startDate: string; endDate: string; vacationId?: string } = {
+  const userId =
+    props.mode === 'edit'
+      ? props.userId
+      : selectedUserId.value;
+  if (!userId) {
+    localError.value = 'Выберите участника';
+    return;
+  }
+  const payload: {
+    userId: string;
+    startDate: string;
+    endDate: string;
+    vacationId?: string;
+  } = {
+    userId,
     startDate: startDate.value.trim(),
     endDate: endDate.value.trim(),
   };
@@ -100,12 +166,28 @@ function submit(): void {
     size="md"
     @update:model-value="emit('update:modelValue', $event)"
   >
-    <p v-if="participantLabel" class="modal-intro">
+    <div v-if="mode === 'create'" class="field">
+      <label class="field__label" for="vacation-user">Участник</label>
+      <select
+        id="vacation-user"
+        v-model="selectedUserId"
+        class="select"
+        required
+      >
+        <option value="" disabled>Выберите участника</option>
+        <option v-for="user in users" :key="user._id" :value="user._id">
+          {{ user.fullName }}
+        </option>
+      </select>
+    </div>
+    <p v-else-if="participantLabel" class="modal-intro">
       {{ participantLabel }}
     </p>
+
     <p class="modal-hint">
       Даты в поле — в формате день.месяц.год; на сервер уходит календарный день
-      без сдвига timezone.
+      без сдвига timezone. По ТК РФ: 28 календарных дней в год, один период не
+      менее 14 дней.
     </p>
 
     <div class="field-grid">
@@ -122,6 +204,15 @@ function submit(): void {
         clearable
         :min="endMin"
       />
+    </div>
+
+    <div v-if="laborWarnings.length > 0" class="modal-warn" role="status">
+      <p class="modal-warn__title">Предупреждение по норме ТК</p>
+      <ul class="modal-warn__list">
+        <li v-for="(warning, index) in laborWarnings" :key="index">
+          {{ warning }}
+        </li>
+      </ul>
     </div>
 
     <p v-if="localError" class="error">{{ localError }}</p>
@@ -160,6 +251,29 @@ function submit(): void {
 .field-grid {
   display: grid;
   gap: var(--space-3);
+}
+
+.modal-warn {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(202, 138, 4, 0.45);
+}
+
+.modal-warn__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #a16207;
+}
+
+.modal-warn__list {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.875rem;
+  color: #854d0e;
+  line-height: 1.45;
 }
 
 .error {

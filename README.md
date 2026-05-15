@@ -203,4 +203,4 @@ curl -sS -X POST "https://<host>/api/hooks/notify-today" \
 | POST/PUT/DELETE | мутации команд, пользователей, отпусков, очереди, подмен | JWT админа |
 | POST | `/api/hooks/notify-today` | `WEBHOOK_TRIGGER_SECRET` в заголовке |
 
-Страницы UI: `/` (сегодня), `/history`, `/holidays`, админка — `/admin/teams`, `/admin/users`, `/admin/vacations`, `/admin/queue`, `/admin/stats`.
+Страницы UI: `/` (сегодня), `/history`, `/holidays`, `/vacation-schedule`, админка — `/admin/teams`, `/admin/users`, `/admin/queue`, `/admin/stats`.

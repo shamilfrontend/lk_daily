@@ -61,14 +61,17 @@ const router = createRouter({
     },
     {
       path: '/admin/vacations',
-      name: 'admin-vacations',
+      redirect: '/vacation-schedule',
+    },
+    {
+      path: '/vacation-schedule',
+      name: 'vacation-schedule',
       meta: {
-        requiresAdmin: true,
-        pageTitle: 'Отпуска',
+        pageTitle: 'График отпусков',
         pageDescription:
-          'Планирование периодов отсутствия участников с учетом выбранной команды.',
+          'Годовой обзор отпусков всех участников команды с подсветкой пересечений внутри роли.',
       },
-      component: () => import('@/views/VacationsPage.vue'),
+      component: () => import('@/views/VacationSchedulePage.vue'),
     },
     {
       path: '/holidays',

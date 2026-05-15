@@ -1,3 +1,5 @@
+import type { UserJobRole } from '@/constants/userJobRoles';
+
 export interface Team {
   _id: string;
   name: string;
@@ -14,6 +16,7 @@ export interface User {
   isActive: boolean;
   onMaternityLeave?: boolean;
   onSickLeave?: boolean;
+  jobRole?: UserJobRole | null;
   birthday?: string;
 }
 

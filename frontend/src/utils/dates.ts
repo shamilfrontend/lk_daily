@@ -9,6 +9,25 @@ export function moscowTodayString(): string {
  * Календарная дата для интерфейса: день.месяц.год (например 22.04.2026).
  * Разбирает префикс YYYY-MM-DD у ISO-строки или отдельной даты.
  */
+/** Период отпуска: 10.06.2026 — 20.06.2026 (или одна дата). */
+export function formatVacationRangeRu(start: string, end: string): string {
+  const from = formatCalendarDateRu(start);
+  const to = formatCalendarDateRu(end);
+  if (from === to) return from;
+  return `${from} — ${to}`;
+}
+
+/** Короткий период для подписи на полосе: 10.06 — 20.06. */
+export function formatVacationRangeShortRu(start: string, end: string): string {
+  const from = formatCalendarDateRu(start);
+  const to = formatCalendarDateRu(end);
+  if (from === to) return from.slice(0, 5);
+  if (start.slice(0, 4) === end.slice(0, 4)) {
+    return `${from.slice(0, 5)} — ${to.slice(0, 5)}`;
+  }
+  return formatVacationRangeRu(start, end);
+}
+
 export function formatCalendarDateRu(isoOrYmd: string): string {
   const s = isoOrYmd.trim();
   if (!s) {

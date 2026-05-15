@@ -72,6 +72,13 @@ function logout(): void {
       <RouterLink class="sidebar__link" to="/holidays" @click="emit('navigate')"
         >Нерабочие дни</RouterLink
       >
+      <RouterLink
+        class="sidebar__link"
+        to="/vacation-schedule"
+        @click="emit('navigate')"
+      >
+        График отпусков
+      </RouterLink>
       <RouterLink class="sidebar__link" to="/history" @click="emit('navigate')"
         >История</RouterLink
       >
@@ -91,12 +98,6 @@ function logout(): void {
           to="/admin/users"
           @click="emit('navigate')"
           >Участники</RouterLink
-        >
-        <RouterLink
-          class="sidebar__link"
-          to="/admin/vacations"
-          @click="emit('navigate')"
-          >Отпуска</RouterLink
         >
         <RouterLink
           class="sidebar__link"
