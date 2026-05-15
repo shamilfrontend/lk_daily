@@ -36,6 +36,7 @@ const modalFullName = ref('');
 const modalTeamId = ref('');
 const modalIsActive = ref(true);
 const modalOnMaternityLeave = ref(false);
+const modalOnSickLeave = ref(false);
 const modalBirthday = ref('');
 const modalError = ref<string | null>(null);
 const today = moscowTodayString();
@@ -75,6 +76,7 @@ watch(participantModalOpen, (open) => {
     modalFullName.value = '';
     modalIsActive.value = true;
     modalOnMaternityLeave.value = false;
+    modalOnSickLeave.value = false;
     modalBirthday.value = '';
   }
 });
@@ -96,6 +98,7 @@ function openEditModal(u: User): void {
   modalTeamId.value = u.teamId;
   modalIsActive.value = u.isActive;
   modalOnMaternityLeave.value = u.onMaternityLeave === true;
+  modalOnSickLeave.value = u.onSickLeave === true;
   modalBirthday.value = normalizeBirthdayInput(u.birthday);
   participantModalOpen.value = true;
 }
@@ -125,6 +128,7 @@ async function saveModal(): Promise<void> {
         teamId: modalTeamId.value,
         isActive: modalIsActive.value,
         onMaternityLeave: modalOnMaternityLeave.value,
+        onSickLeave: modalOnSickLeave.value,
         birthday: modalBirthday.value || null,
       });
     } else {
@@ -133,6 +137,7 @@ async function saveModal(): Promise<void> {
         teamId: modalTeamId.value,
         isActive: modalIsActive.value,
         onMaternityLeave: modalOnMaternityLeave.value,
+        onSickLeave: modalOnSickLeave.value,
         birthday: modalBirthday.value || null,
       });
     }
@@ -204,7 +209,7 @@ function isBirthdayToday(value?: string): boolean {
   <section class="page-shell">
     <AppPageHeader
       title="Участники"
-      subtitle="Управляй составом команды, активностью и статусом декрета из одного экрана."
+      subtitle="Управляй составом команды, активностью, декретом и больничным из одного экрана."
     >
       <template #actions>
         <AppButton type="button" variant="primary" @click="openCreateModal">
@@ -245,6 +250,7 @@ function isBirthdayToday(value?: string): boolean {
               <th>ФИО</th>
               <th>Активен</th>
               <th>В декрете</th>
+              <th>На больничном</th>
               <th>День рождения</th>
               <th>Действия</th>
             </tr>
@@ -254,6 +260,7 @@ function isBirthdayToday(value?: string): boolean {
               <td>{{ u.fullName }}</td>
               <td>{{ u.isActive ? 'Да' : 'Нет' }}</td>
               <td>{{ u.onMaternityLeave ? 'Да' : 'Нет' }}</td>
+              <td>{{ u.onSickLeave ? 'Да' : 'Нет' }}</td>
               <td :class="{ 'birthday-today': isBirthdayToday(u.birthday) }">
                 <span>{{ formatBirthdayForTable(u.birthday) }}</span>
                 <span
@@ -318,9 +325,18 @@ function isBirthdayToday(value?: string): boolean {
           <AppSwitch
             v-model="modalOnMaternityLeave"
             aria-labelledby="uc-mat-lbl"
-					>
-						В декрете
-					</AppSwitch>
+          >
+            В декрете
+          </AppSwitch>
+        </div>
+
+        <div class="field">
+          <AppSwitch
+            v-model="modalOnSickLeave"
+            aria-labelledby="uc-sick-lbl"
+          >
+            На больничном
+          </AppSwitch>
         </div>
 
         <div class="field">

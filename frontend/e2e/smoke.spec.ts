@@ -64,6 +64,7 @@ async function mockApiForQueueActions(page: Page): Promise<void> {
             fullName: 'Alice',
             isActive: true,
             onMaternityLeave: false,
+            onSickLeave: false,
           },
           {
             _id: MOCK_USER_B,
@@ -71,6 +72,7 @@ async function mockApiForQueueActions(page: Page): Promise<void> {
             fullName: 'Bob',
             isActive: true,
             onMaternityLeave: false,
+            onSickLeave: false,
           },
         ]),
       });
@@ -94,7 +96,11 @@ async function mockApiForQueueActions(page: Page): Promise<void> {
             user: { _id: MOCK_USER_A, fullName: 'Alice' },
             rotationUserId: MOCK_USER_A,
           },
-          insights: { vacationUserIds: [], maternityUserIds: [] },
+          insights: {
+            vacationUserIds: [],
+            maternityUserIds: [],
+            sickLeaveUserIds: [],
+          },
           alreadyRecordedToday: false,
         }),
       });

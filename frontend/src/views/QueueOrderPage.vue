@@ -47,6 +47,16 @@ const onMaternityLeaveIds = computed(() => {
   return s;
 });
 
+const onSickLeaveIds = computed(() => {
+  const s = new Set<string>();
+  for (const u of users.users) {
+    if (u.onSickLeave) {
+      s.add(u._id);
+    }
+  }
+  return s;
+});
+
 function setMemberActive(index: number, active: boolean): void {
   const row = localMembers.value[index];
   if (!row) {
@@ -249,6 +259,11 @@ async function sortAz(): Promise<void> {
                     v-if="onMaternityLeaveIds.has(element.userId)"
                     class="badge"
                     >в декрете</span
+                  >
+                  <span
+                    v-if="onSickLeaveIds.has(element.userId)"
+                    class="badge"
+                    >на больничном</span
                   >
                 </div>
               </div>

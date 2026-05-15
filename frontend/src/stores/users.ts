@@ -57,6 +57,7 @@ export const useUsersStore = defineStore('users', () => {
     teamId: string;
     isActive?: boolean;
     onMaternityLeave?: boolean;
+    onSickLeave?: boolean;
     birthday?: string | null;
   }): Promise<User> {
     try {
@@ -76,6 +77,7 @@ export const useUsersStore = defineStore('users', () => {
       teamId: string;
       isActive: boolean;
       onMaternityLeave: boolean;
+      onSickLeave: boolean;
       birthday: string | null;
     }>,
   ): Promise<User> {

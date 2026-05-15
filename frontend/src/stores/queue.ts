@@ -57,6 +57,7 @@ export const useQueueStore = defineStore('queue', () => {
       insightsToday.value = c.data.insights ?? {
         vacationUserIds: [],
         maternityUserIds: [],
+        sickLeaveUserIds: [],
       };
       queueMembers.value = o.data.members ?? [];
       upcoming.value = u.data.rows;

@@ -104,6 +104,7 @@ describe('queue API (integration)', () => {
     expect(res.body.insights).toEqual({
       vacationUserIds: [],
       maternityUserIds: [],
+      sickLeaveUserIds: [],
     });
     expect(res.body.alreadyRecordedToday).toBe(false);
   });

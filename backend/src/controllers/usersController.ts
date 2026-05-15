@@ -16,6 +16,7 @@ const createBody = Joi.object({
   teamId: Joi.string().required(),
   isActive: Joi.boolean().default(true),
   onMaternityLeave: Joi.boolean().default(false),
+  onSickLeave: Joi.boolean().default(false),
   birthday: Joi.string().isoDate().allow(null, ''),
 });
 
@@ -24,6 +25,7 @@ const updateBody = Joi.object({
   teamId: Joi.string(),
   isActive: Joi.boolean(),
   onMaternityLeave: Joi.boolean(),
+  onSickLeave: Joi.boolean(),
   birthday: Joi.string().isoDate().allow(null, ''),
 }).min(1);
 
@@ -91,6 +93,7 @@ export async function createUser(req: Request, res: Response): Promise<void> {
     teamId: team._id,
     isActive: value.isActive !== false,
     onMaternityLeave: value.onMaternityLeave === true,
+    onSickLeave: value.onSickLeave === true,
     birthday: parseBirthdayInput(value.birthday as string | null | undefined),
   });
   if (user.isActive) {
@@ -130,6 +133,7 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   if (value.isActive !== undefined) user.isActive = value.isActive;
   if (value.onMaternityLeave !== undefined)
     user.onMaternityLeave = value.onMaternityLeave;
+  if (value.onSickLeave !== undefined) user.onSickLeave = value.onSickLeave;
   if (value.birthday !== undefined) {
     user.birthday =
       parseBirthdayInput(value.birthday as string | null) ?? undefined;

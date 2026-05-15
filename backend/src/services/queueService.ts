@@ -139,6 +139,23 @@ export async function getMaternityUserIdSet(
   return new Set(rows.map((r) => r._id.toString()));
 }
 
+export async function getSickLeaveUserIdSet(
+  userIds: Types.ObjectId[],
+  session?: ClientSession,
+): Promise<Set<string>> {
+  if (userIds.length === 0) {
+    return new Set();
+  }
+  const rows = await User.find({
+    _id: { $in: userIds },
+    onSickLeave: true,
+  })
+    .session(session ?? null)
+    .select('_id')
+    .lean();
+  return new Set(rows.map((r) => r._id.toString()));
+}
+
 export async function findFirstPresenterId(
   orderedUserIds: Types.ObjectId[],
   unavailableSet: Set<string>,
@@ -242,7 +259,12 @@ export async function getCurrentPresenter(
     moscowDateStr,
   );
   const maternitySet = await getMaternityUserIdSet(orderedForRotation);
-  const unavailable = new Set<string>([...vacationSet, ...maternitySet]);
+  const sickLeaveSet = await getSickLeaveUserIdSet(orderedForRotation);
+  const unavailable = new Set<string>([
+    ...vacationSet,
+    ...maternitySet,
+    ...sickLeaveSet,
+  ]);
   const presenterId = await findFirstPresenterId(
     orderedForRotation,
     unavailable,
@@ -343,7 +365,11 @@ export async function assertNoLogForTeamDay(
 export async function getQueueInsightsForToday(
   teamId: string,
   when: Date = new Date(),
-): Promise<{ vacationUserIds: string[]; maternityUserIds: string[] }> {
+): Promise<{
+  vacationUserIds: string[];
+  maternityUserIds: string[];
+  sickLeaveUserIds: string[];
+}> {
   const team = await Team.findById(teamId).lean();
   if (!team) {
     throw new Error('TEAM_NOT_FOUND');
@@ -353,7 +379,7 @@ export async function getQueueInsightsForToday(
   const queueOrder = await QueueOrder.findOne({ teamId: tid }).lean();
   const membersOrdered = membersFromLeanDoc(queueOrder as QueueOrderLean | null);
   if (!queueOrder || membersOrdered.length === 0) {
-    return { vacationUserIds: [], maternityUserIds: [] };
+    return { vacationUserIds: [], maternityUserIds: [], sickLeaveUserIds: [] };
   }
   const memberIds = membersOrdered.map((m) => m.userId);
   const users = await User.find({
@@ -371,9 +397,11 @@ export async function getQueueInsightsForToday(
     moscowDateStr,
   );
   const maternitySet = await getMaternityUserIdSet(orderedForInsights);
+  const sickLeaveSet = await getSickLeaveUserIdSet(orderedForInsights);
   return {
     vacationUserIds: [...vacationSet],
     maternityUserIds: [...maternitySet],
+    sickLeaveUserIds: [...sickLeaveSet],
   };
 }
 
@@ -502,7 +530,15 @@ async function recordPresentationCore(
     orderedForRotation,
     session ?? undefined,
   );
-  const unavailable = new Set<string>([...vacationSet, ...maternitySet]);
+  const sickLeaveSet = await getSickLeaveUserIdSet(
+    orderedForRotation,
+    session ?? undefined,
+  );
+  const unavailable = new Set<string>([
+    ...vacationSet,
+    ...maternitySet,
+    ...sickLeaveSet,
+  ]);
   const canonicalPresenterId = await findFirstPresenterId(
     orderedForRotation,
     unavailable,
@@ -644,6 +680,9 @@ export async function getUpcomingPresenters(
   const maternityTeamIds = await getMaternityUserIdSet(
     teamUsers.map((u) => u._id),
   );
+  const sickLeaveTeamIds = await getSickLeaveUserIdSet(
+    teamUsers.map((u) => u._id),
+  );
   const checkerByYear = new Map<number, (dateStr: string) => boolean>();
   const substitutionDocs = await QueueDaySubstitution.find({
     teamId: team._id,
@@ -683,8 +722,9 @@ export async function getUpcomingPresenters(
     );
     const unavailable = new Set<string>(vacationSet);
     for (const oid of activeSim) {
-      if (maternityTeamIds.has(oid.toString())) {
-        unavailable.add(oid.toString());
+      const id = oid.toString();
+      if (maternityTeamIds.has(id) || sickLeaveTeamIds.has(id)) {
+        unavailable.add(id);
       }
     }
     const presenterId = await findFirstPresenterId(activeSim, unavailable);

@@ -92,6 +92,9 @@ export function useHomePage() {
   const onMaternityLeaveIds = computed(
     () => new Set(queue.insightsToday?.maternityUserIds ?? []),
   );
+  const onSickLeaveIds = computed(
+    () => new Set(queue.insightsToday?.sickLeaveUserIds ?? []),
+  );
 
   const headline = computed(() => {
     const result = queue.current?.result;
@@ -135,7 +138,8 @@ export function useHomePage() {
       (m) =>
         m.active &&
         !onVacationToday.value.has(m.userId) &&
-        !onMaternityLeaveIds.value.has(m.userId),
+        !onMaternityLeaveIds.value.has(m.userId) &&
+        !onSickLeaveIds.value.has(m.userId),
     ),
   );
 

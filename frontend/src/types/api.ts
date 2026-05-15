@@ -13,6 +13,7 @@ export interface User {
   teamId: string;
   isActive: boolean;
   onMaternityLeave?: boolean;
+  onSickLeave?: boolean;
   birthday?: string;
 }
 
@@ -61,6 +62,7 @@ export type CurrentPresenterResult =
 export interface QueueInsightsToday {
   vacationUserIds: string[];
   maternityUserIds: string[];
+  sickLeaveUserIds: string[];
 }
 
 export interface QueueMember {
