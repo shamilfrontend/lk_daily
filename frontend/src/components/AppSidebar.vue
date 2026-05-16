@@ -4,6 +4,7 @@ import { RouterLink, useRouter } from 'vue-router';
 
 import LoginModal from '@/components/LoginModal.vue';
 import AppButton from '@/components/UI/AppButton.vue';
+import { RouteName } from '@/constants/routerName';
 import { useAuthStore } from '@/stores/auth';
 import { useUiStore } from '@/stores/ui';
 
@@ -22,9 +23,9 @@ const router = useRouter();
 const ui = useUiStore();
 const { adminLoginModalOpen, adminLoginHint } = storeToRefs(ui);
 
-function logout(): void {
+const logout = (): void => {
   auth.logout();
-  void router.push({ name: 'home' });
+  void router.push({ name: RouteName.Home });
   emit('navigate');
 }
 </script>

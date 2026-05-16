@@ -77,7 +77,6 @@ export default tseslint.config(
       'no-void': 'off',
       'prefer-destructuring': 'warn',
       'vue/multi-word-component-names': 'off',
-      'vue/valid-v-for': 'warn',
     },
   },
   {
@@ -91,6 +90,8 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': 'off',
       'no-unused-vars': 'off',
       'vue/script-setup-uses-vars': 'error',
+      // Ложные срабатывания: alias из v-for не попадает в scope правила при <script setup>.
+      'vue/valid-v-for': 'off',
     },
   },
   eslintConfigPrettier,

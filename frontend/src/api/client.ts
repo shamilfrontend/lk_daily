@@ -22,8 +22,8 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (r) => r,
-  async (err: unknown) => {
-    const status = axios.isAxiosError(err) ? err.response?.status : undefined;
+  async (error: unknown) => {
+    const status = axios.isAxiosError(error) ? error.response?.status : undefined;
 
     if (status === 401) {
       localStorage.removeItem('lk_daily_token');
@@ -34,6 +34,6 @@ api.interceptors.response.use(
       }
     }
 
-    return Promise.reject(err);
+    return Promise.reject(error);
   },
 );

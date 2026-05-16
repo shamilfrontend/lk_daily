@@ -10,6 +10,7 @@ import AppModal from '@/components/UI/AppModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import AppSwitch from '@/components/UI/AppSwitch.vue';
+import { RouteName } from '@/constants/routerName';
 import { useAppStore } from '@/stores/app';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
@@ -92,6 +93,29 @@ async function refreshList(): Promise<void> {
   if (filterTeamId.value) {
     await users.fetchUsers(filterTeamId.value, true);
   }
+}
+
+function normalizeBirthdayInput(value?: string): string {
+  if (!value) return '';
+  return value.slice(0, 10);
+}
+
+function formatBirthdayForTable(value?: string): string {
+  if (!value) return '—';
+  return formatCalendarDateRu(value);
+}
+
+function isBirthdayToday(value?: string): boolean {
+  if (!value) return false;
+  const birthdayDate = new Date(value);
+  if (Number.isNaN(birthdayDate.getTime())) return false;
+
+  const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
+  return (
+    birthdayDate.getUTCMonth() + 1 === todayMonth &&
+    birthdayDate.getUTCDate() === todayDay &&
+    todayYear > 0
+  );
 }
 
 function openCreateModal(): void {
@@ -183,35 +207,13 @@ async function remove(): Promise<void> {
 }
 
 function goVacations(): void {
-  void router.push({ name: 'vacation-schedule' });
+  void router.push({ name: RouteName.VacationSchedule });
 }
 
 function onUserRowMenuSelect(id: string, u: User): void {
   if (id === 'edit') openEditModal(u);
   else if (id === 'vacations') goVacations();
   else if (id === 'deactivate') openRemoveModal(u);
-}
-
-function normalizeBirthdayInput(value?: string): string {
-  if (!value) return '';
-  return value.slice(0, 10);
-}
-
-function formatBirthdayForTable(value?: string): string {
-  if (!value) return '—';
-  return formatCalendarDateRu(value);
-}
-
-function isBirthdayToday(value?: string): boolean {
-  if (!value) return false;
-  const birthdayDate = new Date(value);
-  if (Number.isNaN(birthdayDate.getTime())) return false;
-  const [todayYear, todayMonth, todayDay] = today.split('-').map(Number);
-  return (
-    birthdayDate.getUTCMonth() + 1 === todayMonth &&
-    birthdayDate.getUTCDate() === todayDay &&
-    todayYear > 0
-  );
 }
 </script>
 
