@@ -3,7 +3,10 @@ import { computed } from 'vue';
 
 import AppContextMenu from '@/components/UI/AppContextMenu.vue';
 import { jobRoleLabel } from '@/constants/userJobRoles';
-import { isFirstRowInRoleGroup } from '@/utils/vacationSchedule';
+import {
+  isFirstRowInRoleGroup,
+  isUserOnMaternityLeave,
+} from '@/utils/vacationSchedule';
 import {
   formatVacationRangeRu,
   formatVacationRangeShortRu,
@@ -125,7 +128,9 @@ function onPeriodMenuSelect(
           <tr
             :class="{
               'schedule-grid__row--highlight': isRowHighlighted(row.user._id),
+              'schedule-grid__row--maternity': isUserOnMaternityLeave(row.user),
               'schedule-grid__row--labor-warn':
+                !isUserOnMaternityLeave(row.user) &&
                 laborComplianceFor(row.user._id) &&
                 !laborComplianceFor(row.user._id)!.isCompliant &&
                 laborComplianceFor(row.user._id)!.periodCount > 0,
@@ -133,6 +138,10 @@ function onPeriodMenuSelect(
           >
           <th scope="row" class="schedule-grid__name-col">
             <span class="schedule-grid__name">{{ row.user.fullName }}</span>
+            <template v-if="isUserOnMaternityLeave(row.user)">
+              <span class="schedule-grid__maternity">В декретном отпуске</span>
+            </template>
+            <template v-else>
             <span
               v-if="laborComplianceFor(row.user._id)"
               class="schedule-grid__labor"
@@ -167,11 +176,16 @@ function onPeriodMenuSelect(
               </li>
             </ul>
             <span v-else class="schedule-grid__no-periods">Нет отпусков в году</span>
+            </template>
           </th>
           <td :colspan="12" class="schedule-grid__timeline-cell">
             <div
               class="schedule-grid__timeline"
-              :aria-label="`Отпуска ${row.user.fullName} за ${year}`"
+              :aria-label="
+                isUserOnMaternityLeave(row.user)
+                  ? `В декретном отпуске, ${row.user.fullName}, ${year}`
+                  : `Отпуска ${row.user.fullName} за ${year}`
+              "
             >
               <div
                 v-for="(segment, segIndex) in nonWorkingSegments"
@@ -364,6 +378,23 @@ function onPeriodMenuSelect(
   font-size: 0.75rem;
   color: var(--muted);
   font-style: italic;
+}
+
+.schedule-grid__maternity {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.schedule-grid__row--maternity .schedule-grid__name-col {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.schedule-grid__row--maternity {
+  background: rgba(148, 163, 184, 0.05);
 }
 
 .schedule-grid__timeline-cell {

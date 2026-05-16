@@ -226,6 +226,47 @@ describe('vacationSchedule', () => {
     expect(ranges.some((r) => r.kind === 'no_coverage')).toBe(true);
   });
 
+  it('buildScheduleRows не показывает отпуска участнику в декрете', () => {
+    const maternityUser: User = {
+      ...users[0],
+      onMaternityLeave: true,
+    };
+    const vacations: Vacation[] = [
+      {
+        _id: 'v1',
+        userId: 'u1',
+        startDate: '2026-06-10',
+        endDate: '2026-06-20',
+      },
+    ];
+    const rows = buildScheduleRows([maternityUser], vacations, 2026, new Set());
+    expect(rows).toHaveLength(1);
+    expect(rows[0].bars).toHaveLength(0);
+  });
+
+  it('detectSameRoleConflictDays игнорирует отпуска участника в декрете', () => {
+    const maternityUsers: User[] = [
+      { ...users[0], onMaternityLeave: true },
+      users[1],
+    ];
+    const vacations: Vacation[] = [
+      {
+        _id: 'v1',
+        userId: 'u1',
+        startDate: '2026-06-10',
+        endDate: '2026-06-20',
+      },
+      {
+        _id: 'v2',
+        userId: 'u2',
+        startDate: '2026-06-15',
+        endDate: '2026-06-25',
+      },
+    ];
+    expect(detectSameRoleConflictDays(maternityUsers, vacations, 2026).size).toBe(0);
+    expect(buildSameRoleConflictRanges(maternityUsers, vacations, 2026)).toHaveLength(0);
+  });
+
   it('sortScheduleRowsByRole группирует участников по роли и ФИО', () => {
     const mixedUsers: User[] = [
       {

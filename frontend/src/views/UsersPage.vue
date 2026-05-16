@@ -17,11 +17,7 @@ import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyInfo } from '@/composables/useAppNotifications';
-import {
-  GENDER_OPTIONS,
-  genderLabel,
-  type UserGender,
-} from '@/constants/userGenders';
+import { GENDER_OPTIONS, type UserGender } from '@/constants/userGenders';
 import {
   JOB_ROLE_OPTIONS,
   jobRoleLabel,
@@ -298,7 +294,6 @@ function onUserRowMenuSelect(id: string, u: User): void {
             <tr>
               <th class="table__col-avatar" />
               <th>ФИО</th>
-              <th>Пол</th>
               <th>Роль</th>
               <th>Активен</th>
               <th>В декрете</th>
@@ -313,7 +308,6 @@ function onUserRowMenuSelect(id: string, u: User): void {
                 <UserAvatar :avatar="u.avatar" :name="u.fullName" />
               </td>
               <td>{{ u.fullName }}</td>
-              <td>{{ genderLabel(u.gender) }}</td>
               <td>{{ jobRoleLabel(u.jobRole) }}</td>
               <td>{{ u.isActive ? 'Да' : 'Нет' }}</td>
               <td>{{ u.onMaternityLeave ? 'Да' : 'Нет' }}</td>

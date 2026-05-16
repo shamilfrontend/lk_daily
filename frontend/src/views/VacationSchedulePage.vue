@@ -198,7 +198,6 @@ watch(vacationModalOpen, (open) => {
       <div class="card">
         <div class="toolbar schedule-toolbar">
           <div class="field">
-            <span class="field__label">Год</span>
             <div class="year-switcher">
               <AppButton type="button" @click="prevYear">←</AppButton>
               <span class="year-switcher__value">{{ year }}</span>
@@ -362,7 +361,7 @@ watch(vacationModalOpen, (open) => {
 
 <style scoped lang="scss">
 .schedule-toolbar {
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
 }

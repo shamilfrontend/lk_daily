@@ -18,6 +18,7 @@ import {
   buildScheduleRows,
   sortScheduleRowsByRole,
   detectSameRoleConflictDays,
+  isUserOnMaternityLeave,
   monthsWithConflictDays,
   nonWorkingSegmentsForYear,
   yearDateRange,
@@ -138,6 +139,7 @@ export function useVacationSchedule() {
     }
     if (showOnlyLaborIssues.value) {
       rows = rows.filter((row) => {
+        if (isUserOnMaternityLeave(row.user)) return false;
         const compliance = complianceByUserId.value.get(row.user._id);
         return compliance && !compliance.isCompliant && compliance.periodCount > 0;
       });

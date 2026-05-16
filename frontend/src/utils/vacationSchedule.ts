@@ -61,6 +61,10 @@ export function yearDateRange(year: number): { fromDate: string; toDate: string 
   return { fromDate: `${year}-01-01`, toDate: `${year}-12-31` };
 }
 
+export function isUserOnMaternityLeave(user: User): boolean {
+  return user.onMaternityLeave === true;
+}
+
 export function daysInYear(year: number): number {
   const isLeap =
     (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
@@ -118,7 +122,9 @@ function buildRoleVacationIntervalsByUser(
   role: UserJobRole,
 ): Map<string, { start: string; end: string }[]> {
   const roleUserIds = new Set(
-    users.filter((u) => u.jobRole === role).map((u) => u._id),
+    users
+      .filter((u) => u.jobRole === role && !isUserOnMaternityLeave(u))
+      .map((u) => u._id),
   );
   const byUser = new Map<string, { start: string; end: string }[]>();
 
@@ -158,7 +164,9 @@ function detectConflictDaysByKindForRole(
   year: number,
   role: UserJobRole,
 ): Map<RoleConflictKind, Set<string>> {
-  const roleSize = users.filter((u) => u.jobRole === role).length;
+  const roleSize = users.filter(
+    (u) => u.jobRole === role && !isUserOnMaternityLeave(u),
+  ).length;
   const result = new Map<RoleConflictKind, Set<string>>();
   if (roleSize < 2) return result;
 
@@ -292,6 +300,7 @@ function participantsOverlappingRange(
   const result: ConflictParticipant[] = [];
 
   for (const user of roleUsers) {
+    if (isUserOnMaternityLeave(user)) continue;
     const userVacations = vacations.filter((v) => v.userId === user._id);
     const overlaps = userVacations.some((vacation) => {
       const clamped = clampIntervalToYear(
@@ -474,6 +483,10 @@ export function buildScheduleRows(
   }
 
   return users.map((user) => {
+    if (isUserOnMaternityLeave(user)) {
+      return { user, bars: [] };
+    }
+
     const userVacations = vacationsByUser.get(user._id) ?? [];
     const bars = userVacations
       .map((vacation) =>
