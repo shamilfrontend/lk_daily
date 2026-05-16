@@ -17,6 +17,7 @@ const users: User[] = [
     _id: 'u1',
     fullName: 'A',
     teamId: 't1',
+    gender: 'male',
     isActive: true,
     jobRole: 'frontend',
   },
@@ -24,6 +25,7 @@ const users: User[] = [
     _id: 'u2',
     fullName: 'B',
     teamId: 't1',
+    gender: 'male',
     isActive: true,
     jobRole: 'frontend',
   },
@@ -31,6 +33,7 @@ const users: User[] = [
     _id: 'u3',
     fullName: 'C',
     teamId: 't1',
+    gender: 'male',
     isActive: true,
     jobRole: 'backend',
   },
@@ -78,8 +81,8 @@ describe('vacationSchedule', () => {
 
   it('не считает конфликт без роли или в разных ролях', () => {
     const noRoleUsers: User[] = [
-      { _id: 'x1', fullName: 'X1', teamId: 't1', isActive: true },
-      { _id: 'x2', fullName: 'X2', teamId: 't1', isActive: true },
+      { _id: 'x1', fullName: 'X1', teamId: 't1', gender: 'male', isActive: true },
+      { _id: 'x2', fullName: 'X2', teamId: 't1', gender: 'male', isActive: true },
     ];
     const vacations: Vacation[] = [
       { _id: 'v1', userId: 'x1', startDate: '2026-07-01', endDate: '2026-07-10' },
@@ -127,6 +130,7 @@ describe('vacationSchedule', () => {
         _id: 'u4',
         fullName: 'D',
         teamId: 't1',
+        gender: 'male',
         isActive: true,
         jobRole: 'frontend',
       },
@@ -156,6 +160,7 @@ describe('vacationSchedule', () => {
         _id: 'u4',
         fullName: 'D',
         teamId: 't1',
+        gender: 'male',
         isActive: true,
         jobRole: 'frontend',
       },
@@ -190,6 +195,7 @@ describe('vacationSchedule', () => {
         _id: 'u4',
         fullName: 'D',
         teamId: 't1',
+        gender: 'male',
         isActive: true,
         jobRole: 'frontend',
       },
@@ -222,10 +228,31 @@ describe('vacationSchedule', () => {
 
   it('sortScheduleRowsByRole группирует участников по роли и ФИО', () => {
     const mixedUsers: User[] = [
-      { _id: 'u3', fullName: 'C', teamId: 't1', isActive: true, jobRole: 'backend' },
-      { _id: 'u1', fullName: 'A', teamId: 't1', isActive: true, jobRole: 'frontend' },
-      { _id: 'u2', fullName: 'B', teamId: 't1', isActive: true, jobRole: 'frontend' },
-      { _id: 'u4', fullName: 'D', teamId: 't1', isActive: true },
+      {
+        _id: 'u3',
+        fullName: 'C',
+        teamId: 't1',
+        gender: 'male',
+        isActive: true,
+        jobRole: 'backend',
+      },
+      {
+        _id: 'u1',
+        fullName: 'A',
+        teamId: 't1',
+        gender: 'male',
+        isActive: true,
+        jobRole: 'frontend',
+      },
+      {
+        _id: 'u2',
+        fullName: 'B',
+        teamId: 't1',
+        gender: 'male',
+        isActive: true,
+        jobRole: 'frontend',
+      },
+      { _id: 'u4', fullName: 'D', teamId: 't1', gender: 'male', isActive: true },
     ];
     const rows = buildScheduleRows(mixedUsers, [], 2026, new Set());
     const sorted = sortScheduleRowsByRole(rows);

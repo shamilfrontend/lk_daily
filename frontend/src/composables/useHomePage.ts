@@ -12,7 +12,7 @@ import {
   moscowTodayString,
 } from '@/utils/dates';
 import { notifySuccess } from '@/composables/useAppNotifications';
-import type { QueueMember } from '@/types/api';
+import type { QueueMember, User } from '@/types/api';
 
 const UPCOMING_DAYS = 60;
 const UPCOMING_BIRTHDAY_DAYS = 30;
@@ -102,6 +102,20 @@ export function useHomePage() {
       map.set(user._id, user.fullName);
     }
     return map;
+  });
+
+  const userById = computed(() => {
+    const map = new Map<string, User>();
+    for (const user of users.users) {
+      map.set(user._id, user);
+    }
+    return map;
+  });
+
+  const currentPresenterUser = computed(() => {
+    const result = queue.current?.result;
+    if (!result || result.kind !== 'ok') return null;
+    return userById.value.get(result.user._id) ?? null;
   });
 
   const queueDateByUserId = computed(() => {
@@ -220,10 +234,8 @@ export function useHomePage() {
     });
   });
 
-  const todayBirthdayNames = computed(() =>
-    upcomingBirthdays.value
-      .filter((item) => item.daysLeft === 0)
-      .map((item) => item.fullName),
+  const todayBirthdays = computed(() =>
+    upcomingBirthdays.value.filter((item) => item.daysLeft === 0),
   );
 
   const upcomingBirthdaysNextMonth = computed(() =>
@@ -375,7 +387,9 @@ export function useHomePage() {
     presenterSelectionHint,
     skipDebtByUserId,
     substitutionHint,
-    todayBirthdayNames,
+    todayBirthdays,
+    currentPresenterUser,
+    userById,
     today,
     ongoingVacationRows,
     upcomingBirthdays,

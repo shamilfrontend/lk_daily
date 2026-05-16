@@ -52,11 +52,13 @@ describe('queue API (integration)', () => {
     const ua = await User.create({
       teamId: team._id,
       fullName: 'Alice',
+      gender: 'female',
       isActive: true,
     });
     const ub = await User.create({
       teamId: team._id,
       fullName: 'Bob',
+      gender: 'male',
       isActive: true,
     });
     userA = ua._id.toString();
@@ -137,6 +139,7 @@ describe('queue API (integration)', () => {
       await User.create({
         teamId: new mongoose.Types.ObjectId(teamId),
         fullName: 'Carol',
+        gender: 'female',
         isActive: true,
       })
     )._id.toString();
@@ -252,6 +255,7 @@ describe('queue API (integration)', () => {
       await User.create({
         teamId: new mongoose.Types.ObjectId(teamId),
         fullName: 'Carol',
+        gender: 'female',
         isActive: true,
       })
     )._id.toString();
@@ -385,6 +389,7 @@ describe('queue API (integration)', () => {
       await User.create({
         teamId: new mongoose.Types.ObjectId(teamId),
         fullName: 'Carol',
+        gender: 'female',
         isActive: true,
       })
     )._id.toString();

@@ -14,7 +14,8 @@
     "format:check": "prettier --check \"src/**/*.ts\" && eslint \"src/**/*.ts\"",
     "seed:data": "tsx src/seed/seedFromDataJson.ts",
     "seed:data:force": "tsx src/seed/seedFromDataJson.ts --force",
-    "seed:admin": "tsx src/seed/seedAdmin.ts"
+    "seed:admin": "tsx src/seed/seedAdmin.ts",
+    "migrate:user-gender": "tsx src/seed/migrateUserGender.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

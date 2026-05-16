@@ -3,6 +3,10 @@ import Joi from 'joi';
 import mongoose from 'mongoose';
 
 import {
+  USER_GENDERS,
+  type UserGender,
+} from '../constants/userGenders.js';
+import {
   USER_JOB_ROLES,
   type UserJobRole,
 } from '../constants/userJobRoles.js';
@@ -19,9 +23,35 @@ const jobRoleSchema = Joi.string()
   .valid(...USER_JOB_ROLES)
   .allow(null, '');
 
+const genderSchema = Joi.string()
+  .valid(...USER_GENDERS)
+  .required();
+
+const AVATAR_DATA_URL_RE =
+  /^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/;
+const AVATAR_RAW_BASE64_RE = /^[A-Za-z0-9+/=]+$/;
+
+const avatarSchema = Joi.string()
+  .allow(null, '')
+  .max(700_000)
+  .custom((value, helpers) => {
+    if (value == null || value === '') {
+      return value;
+    }
+    if (
+      AVATAR_DATA_URL_RE.test(value) ||
+      AVATAR_RAW_BASE64_RE.test(value)
+    ) {
+      return value;
+    }
+    return helpers.error('any.invalid');
+  }, 'avatar format');
+
 const createBody = Joi.object({
   fullName: Joi.string().trim().required(),
   teamId: Joi.string().required(),
+  gender: genderSchema,
+  avatar: avatarSchema,
   isActive: Joi.boolean().default(true),
   onMaternityLeave: Joi.boolean().default(false),
   onSickLeave: Joi.boolean().default(false),
@@ -32,6 +62,8 @@ const createBody = Joi.object({
 const updateBody = Joi.object({
   fullName: Joi.string().trim(),
   teamId: Joi.string(),
+  gender: genderSchema,
+  avatar: avatarSchema,
   isActive: Joi.boolean(),
   onMaternityLeave: Joi.boolean(),
   onSickLeave: Joi.boolean(),
@@ -60,6 +92,19 @@ function parseJobRoleInput(
     return undefined;
   }
   return value as UserJobRole;
+}
+
+function parseGenderInput(value: string): UserGender {
+  return value as UserGender;
+}
+
+function parseAvatarInput(
+  value: string | null | undefined,
+): string | undefined {
+  if (value == null || value === '') {
+    return undefined;
+  }
+  return value;
 }
 
 export async function listUsers(req: Request, res: Response): Promise<void> {
@@ -110,6 +155,8 @@ export async function createUser(req: Request, res: Response): Promise<void> {
   const user = await User.create({
     fullName: value.fullName,
     teamId: team._id,
+    gender: parseGenderInput(value.gender as string),
+    avatar: parseAvatarInput(value.avatar as string | null | undefined),
     isActive: value.isActive !== false,
     onMaternityLeave: value.onMaternityLeave === true,
     onSickLeave: value.onSickLeave === true,
@@ -160,6 +207,12 @@ export async function updateUser(req: Request, res: Response): Promise<void> {
   }
   if (value.jobRole !== undefined) {
     user.jobRole = parseJobRoleInput(value.jobRole as string | null);
+  }
+  if (value.gender !== undefined) {
+    user.gender = parseGenderInput(value.gender as string);
+  }
+  if (value.avatar !== undefined) {
+    user.avatar = parseAvatarInput(value.avatar as string | null);
   }
 
   await user.save();

@@ -32,6 +32,7 @@ describe('history API (integration)', () => {
     const u = await User.create({
       teamId: team._id,
       fullName: 'Tester',
+      gender: 'male',
       isActive: true,
     });
 

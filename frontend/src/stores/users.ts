@@ -5,6 +5,7 @@ import { api } from '@/api/client';
 import { getApiErrorMessage } from '@/utils/apiError';
 import { notifyError, notifySuccess } from '@/composables/useAppNotifications';
 
+import type { UserGender } from '@/constants/userGenders';
 import type { UserJobRole } from '@/constants/userJobRoles';
 import type { User } from '@/types/api';
 
@@ -56,6 +57,8 @@ export const useUsersStore = defineStore('users', () => {
   async function createUser(payload: {
     fullName: string;
     teamId: string;
+    gender: UserGender;
+    avatar?: string | null;
     isActive?: boolean;
     onMaternityLeave?: boolean;
     onSickLeave?: boolean;
@@ -77,6 +80,8 @@ export const useUsersStore = defineStore('users', () => {
     payload: Partial<{
       fullName: string;
       teamId: string;
+      gender: UserGender;
+      avatar: string | null;
       isActive: boolean;
       onMaternityLeave: boolean;
       onSickLeave: boolean;

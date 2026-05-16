@@ -141,6 +141,7 @@ async function seedFromData(data: SeedData): Promise<void> {
       const user = await User.create({
         fullName: m.name.trim(),
         teamId: team._id,
+        gender: 'male',
         isActive: true,
         onMaternityLeave: m.onMaternityLeave === true,
       });

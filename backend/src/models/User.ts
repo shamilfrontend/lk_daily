@@ -5,11 +5,14 @@ import mongoose, {
   type Types,
 } from 'mongoose';
 
+import type { UserGender } from '../constants/userGenders.js';
 import type { UserJobRole } from '../constants/userJobRoles.js';
 
 export interface IUser extends Document {
   fullName: string;
   teamId: Types.ObjectId;
+  gender: UserGender;
+  avatar?: string;
   isActive: boolean;
   onMaternityLeave: boolean;
   onSickLeave: boolean;
@@ -28,6 +31,12 @@ const userSchema = new Schema<IUser>(
       required: true,
       index: true,
     },
+    gender: {
+      type: String,
+      enum: ['male', 'female'],
+      required: true,
+    },
+    avatar: { type: String, required: false },
     isActive: { type: Boolean, default: true },
     onMaternityLeave: { type: Boolean, default: false },
     onSickLeave: { type: Boolean, default: false },

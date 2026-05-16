@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import UserAvatar from '@/components/UserAvatar.vue';
 import AppButton from '@/components/UI/AppButton.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
@@ -25,7 +26,9 @@ const {
   refresh,
   substitutionHint,
   ongoingVacationRows,
-  todayBirthdayNames,
+  todayBirthdays,
+  currentPresenterUser,
+  userById,
   upcomingBirthdays,
   upcomingBirthdaysNextMonth,
   upcomingVacations,
@@ -98,7 +101,18 @@ const {
         <div class="left-column">
           <div class="card hero-card">
             <p class="hero-card__label">Сегодня показывает</p>
-            <p class="hero-card__title">{{ headline }}</p>
+            <div
+              v-if="currentPresenterUser"
+              class="hero-card__presenter"
+            >
+              <UserAvatar
+                :avatar="currentPresenterUser.avatar"
+                :name="currentPresenterUser.fullName"
+                size="md"
+              />
+              <p class="hero-card__title">{{ headline }}</p>
+            </div>
+            <p v-else class="hero-card__title">{{ headline }}</p>
             <p v-if="nonWorkingReason" class="hero-card__reason">
               {{ nonWorkingReason }}
             </p>
@@ -160,11 +174,15 @@ const {
             </div>
 
             <p
-              v-for="fullName in todayBirthdayNames"
-              :key="fullName"
-              class="hero-card__reason birthday-today-text"
+              v-for="item in todayBirthdays"
+              :key="item.userId"
+              class="hero-card__reason birthday-today-text person-line"
             >
-              Сегодня день рождения у {{ fullName }}
+              <UserAvatar
+                :avatar="userById.get(item.userId)?.avatar"
+                :name="item.fullName"
+              />
+              <span>Сегодня день рождения у {{ item.fullName }}</span>
             </p>
 
             <AppState
@@ -186,7 +204,13 @@ const {
                 :key="item.userId"
                 class="birthday-list__item"
               >
-                <span>{{ item.fullName }}</span>
+                <span class="person-line">
+                  <UserAvatar
+                    :avatar="userById.get(item.userId)?.avatar"
+                    :name="item.fullName"
+                  />
+                  <span>{{ item.fullName }}</span>
+                </span>
                 <span class="badge">{{ item.dayMonth }}</span>
               </li>
             </ul>
@@ -202,9 +226,15 @@ const {
             <p
               v-for="row in ongoingVacationRows"
               :key="row.vacationId"
-              class="hero-card__reason vacation-today-text"
+              class="hero-card__reason vacation-today-text person-line"
             >
-              Сейчас в отпуске: {{ row.fullName }} ({{ row.periodLabel }})
+              <UserAvatar
+                :avatar="userById.get(row.userId)?.avatar"
+                :name="row.fullName"
+              />
+              <span>
+                Сейчас в отпуске: {{ row.fullName }} ({{ row.periodLabel }})
+              </span>
             </p>
 
             <AppState
@@ -226,7 +256,13 @@ const {
                 :key="row.vacationId"
                 class="birthday-list__item"
               >
-                <span>{{ row.fullName }}</span>
+                <span class="person-line">
+                  <UserAvatar
+                    :avatar="userById.get(row.userId)?.avatar"
+                    :name="row.fullName"
+                  />
+                  <span>{{ row.fullName }}</span>
+                </span>
                 <span class="badge">{{ row.periodLabel }}</span>
               </li>
             </ul>
@@ -266,6 +302,10 @@ const {
               :key="m.userId"
               class="queue__item"
             >
+              <UserAvatar
+                :avatar="userById.get(m.userId)?.avatar"
+                :name="userMap.get(m.userId) ?? m.userId"
+              />
               <div class="queue__main">
                 <p class="queue__name">{{ userMap.get(m.userId) ?? m.userId }}</p>
                 <p class="queue__date">
@@ -334,10 +374,27 @@ const {
   font-size: var(--font-size-xs);
 }
 
+.hero-card__presenter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
 .hero-card__title {
   font-size: clamp(1.8rem, 3vw, 2.4rem);
   font-weight: 800;
   line-height: 1.05;
+}
+
+.person-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.birthday-list__item .person-line {
+  flex: 1;
+  min-width: 0;
 }
 
 .hero-card__hint {
@@ -401,7 +458,7 @@ const {
 
 .queue__item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
   padding: 0.25rem 1rem;
   border: 1px solid var(--border);

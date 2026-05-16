@@ -1,3 +1,4 @@
+import type { UserGender } from '@/constants/userGenders';
 import type { UserJobRole } from '@/constants/userJobRoles';
 
 export interface Team {
@@ -13,6 +14,8 @@ export interface User {
   _id: string;
   fullName: string;
   teamId: string;
+  gender: UserGender;
+  avatar?: string | null;
   isActive: boolean;
   onMaternityLeave?: boolean;
   onSickLeave?: boolean;

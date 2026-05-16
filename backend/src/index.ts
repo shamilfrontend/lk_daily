@@ -9,6 +9,7 @@ import { env } from './config/env.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 import { requestIdMiddleware } from './middlewares/requestId.js';
 import { apiRouter } from './routes/api.js';
+import { migrateUserGenderIfNeeded } from './seed/migrateUserGender.js';
 import { seedAdminIfEmpty } from './seed/seedAdmin.js';
 import { logger } from './utils/logger.js';
 
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
   await mongoose.connect(env.mongoUri);
   logger.info('Connected to MongoDB');
   await seedAdminIfEmpty();
+  await migrateUserGenderIfNeeded();
 
   const app = express();
   app.disable('x-powered-by');

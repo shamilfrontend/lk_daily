@@ -50,6 +50,7 @@ describe('hooks notify-today (integration)', () => {
     const ua = await User.create({
       teamId: team._id,
       fullName: 'Presenter',
+      gender: 'male',
       isActive: true,
     });
     await QueueOrder.create({
