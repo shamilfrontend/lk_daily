@@ -1,11 +1,11 @@
 export const USER_JOB_ROLES = [
+  'teamlead',
   'frontend',
   'backend',
   'analyst',
   'qa',
-  'devops',
   'pm',
-  'other',
+  'design',
 ] as const;
 
 export type UserJobRole = (typeof USER_JOB_ROLES)[number];

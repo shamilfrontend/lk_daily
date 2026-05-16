@@ -1,23 +1,23 @@
 export const USER_JOB_ROLES = [
+  'teamlead',
   'frontend',
   'backend',
   'analyst',
   'qa',
-  'devops',
   'pm',
-  'other',
+  'design',
 ] as const;
 
 export type UserJobRole = (typeof USER_JOB_ROLES)[number];
 
 const JOB_ROLE_LABELS: Record<UserJobRole, string> = {
+  teamlead: 'Тимлид',
   frontend: 'Фронтенд',
   backend: 'Бэкенд',
   analyst: 'Аналитик',
   qa: 'Тестирование',
-  devops: 'DevOps',
-  pm: 'PM / продакт',
-  other: 'Другое',
+  pm: 'PM / Продакт',
+  design: 'Дизайнеры',
 };
 
 export function jobRoleLabel(role: UserJobRole | null | undefined): string {
@@ -40,11 +40,11 @@ export const JOB_ROLE_OPTIONS: { value: UserJobRole; label: string }[] =
 
 /** Цвета полос отпусков на графике */
 export const JOB_ROLE_COLORS: Record<UserJobRole, string> = {
+  teamlead: '#89ee08',
   frontend: '#0d9488',
   backend: '#2563eb',
   analyst: '#7c3aed',
   qa: '#ca8a04',
-  devops: '#ea580c',
   pm: '#db2777',
-  other: '#64748b',
+  design: '#27dba2',
 };

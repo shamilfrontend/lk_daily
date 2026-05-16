@@ -34,13 +34,13 @@ const userSchema = new Schema<IUser>(
     jobRole: {
       type: String,
       enum: [
+        'teamlead',
         'frontend',
         'backend',
         'analyst',
         'qa',
-        'devops',
         'pm',
-        'other',
+        'design',
       ],
       required: false,
     },

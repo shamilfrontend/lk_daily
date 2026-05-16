@@ -11,11 +11,7 @@ import AppState from '@/components/UI/AppState.vue';
 import AppSwitch from '@/components/UI/AppSwitch.vue';
 import { useVacationSchedule } from '@/composables/useVacationSchedule';
 import { notifyInfo } from '@/composables/useAppNotifications';
-import {
-  JOB_ROLE_COLORS,
-  JOB_ROLE_OPTIONS,
-  jobRoleLabel,
-} from '@/constants/userJobRoles';
+import { jobRoleLabel } from '@/constants/userJobRoles';
 import { useAuthStore } from '@/stores/auth';
 import { useUsersStore } from '@/stores/users';
 import { useVacationsStore } from '@/stores/vacations';
@@ -34,7 +30,6 @@ const vacationsStore = useVacationsStore();
 const {
   year,
   teamId,
-  roleFilter,
   showOnlyConflicts,
   showOnlyLaborIssues,
   complianceByUserId,
@@ -49,8 +44,6 @@ const {
   emptyStateDescription,
   load,
   setYear,
-  toggleRoleFilter,
-  clearRoleFilter,
   focusConflictParticipants,
   selectBar,
   clearSelectedBar,
@@ -224,33 +217,6 @@ watch(vacationModalOpen, (open) => {
               Только нарушения ТК
             </AppSwitch>
           </div>
-
-          <div class="field field--grow role-filter">
-            <span class="field__label">Фильтр по роли</span>
-            <div class="role-filter__chips">
-              <AppButton
-                v-if="roleFilter.size > 0"
-                type="button"
-                @click="clearRoleFilter"
-              >
-                Все роли
-              </AppButton>
-              <button
-                v-for="opt in JOB_ROLE_OPTIONS"
-                :key="opt.value"
-                type="button"
-                class="role-chip"
-                :class="{ 'role-chip--active': roleFilter.has(opt.value) }"
-                @click="toggleRoleFilter(opt.value)"
-              >
-                <span
-                  class="role-chip__dot"
-                  :style="{ backgroundColor: JOB_ROLE_COLORS[opt.value] }"
-                />
-                {{ opt.label }}
-              </button>
-            </div>
-          </div>
         </div>
 
         <div
@@ -313,39 +279,6 @@ watch(vacationModalOpen, (open) => {
               </li>
             </ul>
           </template>
-        </div>
-
-        <div class="schedule-legend">
-          <p class="schedule-legend__title">Легенда</p>
-          <ul class="schedule-legend__list">
-            <li
-              v-for="opt in JOB_ROLE_OPTIONS"
-              :key="opt.value"
-              class="schedule-legend__item"
-            >
-              <span
-                class="schedule-legend__swatch"
-                :style="{ backgroundColor: JOB_ROLE_COLORS[opt.value] }"
-              />
-              {{ opt.label }}
-            </li>
-            <li class="schedule-legend__item">
-              <span class="schedule-legend__swatch schedule-legend__swatch--muted" />
-              Роль не указана
-            </li>
-            <li class="schedule-legend__item">
-              <span class="schedule-legend__swatch schedule-legend__swatch--nwd" />
-              Нерабочий день
-            </li>
-            <li class="schedule-legend__item schedule-legend__item--conflict">
-              <span class="schedule-legend__swatch schedule-legend__swatch--conflict" />
-              Нарушение правил роли
-            </li>
-            <li class="schedule-legend__item schedule-legend__item--labor">
-              <span class="schedule-legend__swatch schedule-legend__swatch--labor" />
-              Нарушение нормы ТК (28 дн., один период ≥14)
-            </li>
-          </ul>
         </div>
 
         <AppState
@@ -447,12 +380,6 @@ watch(vacationModalOpen, (open) => {
   font-size: 1.1rem;
 }
 
-.role-filter__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
 .role-chip {
   display: inline-flex;
   align-items: center;
@@ -545,69 +472,5 @@ watch(vacationModalOpen, (open) => {
   font-size: 0.85rem;
   font-weight: 600;
   color: #a16207;
-}
-
-.schedule-legend__item--labor {
-  color: #a16207;
-}
-
-.schedule-legend__swatch--labor {
-  background: rgba(234, 179, 8, 0.35);
-  border: 1px solid #ca8a04;
-}
-
-.schedule-legend {
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--border, #e2e8f0);
-}
-
-.schedule-legend__title {
-  margin: 0 0 var(--space-2);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--muted);
-}
-
-.schedule-legend__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.schedule-legend__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.8rem;
-}
-
-.schedule-legend__item--conflict {
-  color: var(--danger, #dc2626);
-}
-
-.schedule-legend__swatch {
-  width: 0.75rem;
-  height: 0.75rem;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
-
-.schedule-legend__swatch--muted {
-  background: #94a3b8;
-}
-
-.schedule-legend__swatch--nwd {
-  background: rgba(148, 163, 184, 0.35);
-}
-
-.schedule-legend__swatch--conflict {
-  background: transparent;
-  border: 2px solid var(--danger, #dc2626);
-  width: 0.65rem;
-  height: 0.65rem;
 }
 </style>
