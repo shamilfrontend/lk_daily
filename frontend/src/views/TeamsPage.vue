@@ -129,7 +129,7 @@ function onTeamRowMenuSelect(id: string, t: Team): void {
 <template>
   <section class="page-shell">
     <AppPageHeader
-      title="Управление командами"
+      title="Команды"
       subtitle="Создавай команды, меняй их описание и региональные настройки без отдельного мастера."
     >
       <template #actions>

@@ -14,10 +14,12 @@ const props = withDefaults(
     items: AppContextMenuItem[];
     placement?: Placement;
     triggerLabel?: string;
+    triggerSize?: 'default' | 'compact';
   }>(),
   {
     placement: 'bottom-end',
     triggerLabel: 'Действия',
+    triggerSize: 'default',
   },
 );
 
@@ -95,7 +97,10 @@ function onItemClick(item: AppContextMenuItem): void {
 </script>
 
 <template>
-  <div class="app-context-menu">
+  <div
+    class="app-context-menu"
+    :class="{ 'app-context-menu--compact': triggerSize === 'compact' }"
+  >
     <div
       ref="triggerRef"
       class="app-context-menu__anchor"
@@ -177,6 +182,15 @@ function onItemClick(item: AppContextMenuItem): void {
 .app-context-menu__trigger-btn:focus-visible {
   outline: var(--focus-ring-width) solid var(--accent);
   outline-offset: var(--focus-ring-offset);
+}
+
+.app-context-menu--compact .app-context-menu__trigger-btn {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  font-size: 0.95rem;
 }
 
 .app-context-menu__dots {

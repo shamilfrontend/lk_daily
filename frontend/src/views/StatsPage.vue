@@ -74,7 +74,7 @@ watch([from, to], () => {
 <template>
   <section class="page-shell">
     <AppPageHeader
-      title="Статистика команды"
+      title="Статистика"
       subtitle="Сводка по журналу выступлений: сколько раз выступили и пропустили, последняя дата по каждому участнику."
     />
 

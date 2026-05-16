@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { useRouter } from 'vue-router';
 
 import UserAvatar from '@/components/UserAvatar.vue';
 import AppConfirmModal from '@/components/UI/AppConfirmModal.vue';
@@ -11,7 +10,6 @@ import AppModal from '@/components/UI/AppModal.vue';
 import AppPageHeader from '@/components/UI/AppPageHeader.vue';
 import AppState from '@/components/UI/AppState.vue';
 import AppSwitch from '@/components/UI/AppSwitch.vue';
-import { RouteName } from '@/constants/routerName';
 import { useAppStore } from '@/stores/app';
 import { useTeamsStore } from '@/stores/teams';
 import { useUsersStore } from '@/stores/users';
@@ -23,7 +21,10 @@ import {
   jobRoleLabel,
   type UserJobRole,
 } from '@/constants/userJobRoles';
-import { formatCalendarDateRu, moscowTodayString } from '@/utils/dates';
+import {
+  formatCalendarDayMonthRu,
+  moscowTodayString,
+} from '@/utils/dates';
 import { avatarSrc, readImageFileAsDataUrl } from '@/utils/userAvatar';
 
 import type { User } from '@/types/api';
@@ -31,7 +32,6 @@ import type { User } from '@/types/api';
 const app = useAppStore();
 const teams = useTeamsStore();
 const users = useUsersStore();
-const router = useRouter();
 
 const pageError = ref<string | null>(null);
 const confirmOpen = ref(false);
@@ -112,7 +112,7 @@ function normalizeBirthdayInput(value?: string): string {
 
 function formatBirthdayForTable(value?: string): string {
   if (!value) return '—';
-  return formatCalendarDateRu(value);
+  return formatCalendarDayMonthRu(value);
 }
 
 function isBirthdayToday(value?: string): boolean {
@@ -239,13 +239,8 @@ async function remove(): Promise<void> {
   }
 }
 
-function goVacations(): void {
-  void router.push({ name: RouteName.VacationSchedule });
-}
-
 function onUserRowMenuSelect(id: string, u: User): void {
   if (id === 'edit') openEditModal(u);
-  else if (id === 'vacations') goVacations();
   else if (id === 'deactivate') openRemoveModal(u);
 }
 </script>
@@ -325,7 +320,6 @@ function onUserRowMenuSelect(id: string, u: User): void {
                   :trigger-label="`Действия: ${u.fullName}`"
                   :items="[
                     { id: 'edit', label: 'Изменить' },
-                    { id: 'vacations', label: 'Отпуска' },
                     {
                       id: 'deactivate',
                       label: 'Деактивировать',

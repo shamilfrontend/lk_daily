@@ -13,6 +13,7 @@ import {
 } from '@/utils/dates';
 import { notifySuccess } from '@/composables/useAppNotifications';
 import type { QueueMember, User } from '@/types/api';
+import { isUserOnMaternityLeave } from '@/utils/vacationSchedule';
 
 const UPCOMING_DAYS = 60;
 const UPCOMING_BIRTHDAY_DAYS = 30;
@@ -248,7 +249,10 @@ export function useHomePage() {
 
     const nameByUserId = new Map(
       users.users
-        .filter((user) => user.teamId === teamId)
+        .filter(
+          (user) =>
+            user.teamId === teamId && !isUserOnMaternityLeave(user),
+        )
         .map((user) => [user._id, user.fullName]),
     );
 

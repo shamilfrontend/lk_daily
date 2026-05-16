@@ -40,6 +40,20 @@ export function formatCalendarDateRu(isoOrYmd: string): string {
   return s;
 }
 
+/** Календарная дата без года: день.месяц (например 22.04). */
+export function formatCalendarDayMonthRu(isoOrYmd: string): string {
+  const s = isoOrYmd.trim();
+  if (!s) {
+    return '';
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (m) {
+    return `${m[3]}.${m[2]}`;
+  }
+  const full = formatCalendarDateRu(s);
+  return full.length >= 5 ? full.slice(0, 5) : full;
+}
+
 /**
  * Дата и время для интерфейса: день.месяц.год, чч:мм (локальное время браузера).
  */

@@ -44,7 +44,7 @@ const router = createRouter({
         requiresAdmin: true,
         pageTitle: 'Команды',
         pageDescription:
-          'Управление командами, описанием и региональными настройками.',
+          'Команды, описанием и региональными настройками.',
       },
       component: () => import('@/views/TeamsPage.vue'),
     },

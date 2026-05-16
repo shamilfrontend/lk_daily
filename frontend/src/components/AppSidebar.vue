@@ -92,7 +92,7 @@ const logout = (): void => {
           to="/admin/teams"
           @click="emit('navigate')"
         >
-          Управление командами
+          Команды
         </RouterLink>
         <RouterLink
           class="sidebar__link"

@@ -166,6 +166,7 @@ function onPeriodMenuSelect(
                 </span>
                 <AppContextMenu
                   v-if="canManageVacations"
+                  trigger-size="compact"
                   :trigger-label="`Действия: ${formatVacationRangeRu(bar.startDate, bar.endDate)}`"
                   :items="[
                     { id: 'edit', label: 'Изменить' },
