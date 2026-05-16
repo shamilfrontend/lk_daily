@@ -3,8 +3,8 @@ export const USER_GENDERS = ['male', 'female'] as const;
 export type UserGender = (typeof USER_GENDERS)[number];
 
 const GENDER_LABELS: Record<UserGender, string> = {
-  male: 'Мужчина',
-  female: 'Женщина',
+  male: 'Мужской',
+  female: 'Женский',
 };
 
 export function genderLabel(gender: UserGender | null | undefined): string {
